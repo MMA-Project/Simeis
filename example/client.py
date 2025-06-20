@@ -1,6 +1,13 @@
 PORT=8080
 URL=f"http://127.0.0.1:{PORT}"
 
+RESOURCE_VALUE = {
+    "Ozone": 100,
+    "Iron": 75,
+    "Helium": 50,
+    "Stone": 25
+}
+
 import os
 import sys
 import math
@@ -230,6 +237,7 @@ class Game:
         # Scan the galaxy sector, detect which planet is the nearest
         station = self.get(f"/station/{self.sta}")
         planets = self.get(f"/station/{self.sta}/scan")["planets"]
+        print("planets: ", planets)
         nearest = sorted(planets,
             key=lambda pla: get_dist(station["position"], pla["position"])
         )[0]

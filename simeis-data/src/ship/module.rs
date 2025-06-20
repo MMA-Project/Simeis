@@ -49,6 +49,7 @@ impl ShipModuleType {
     }
 }
 
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ShipModule {
     pub operator: Option<CrewId>,
