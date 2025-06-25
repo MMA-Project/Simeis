@@ -169,7 +169,7 @@ impl Ship {
             debug_assert!(matches!(pilot.member_type, CrewMemberType::Pilot));
             // TODO Handle case where pilot rank > PILOT_FUEL_SHARE * 10
             let totshare = (PILOT_FUEL_SHARE * 10) as f64;
-            self.stats.fuel_consumption *= (totshare - (pilot.rank as f64)) / totshare;
+            self.stats.fuel_consumption *= (totshare - (pilot.rank as f64)) / totshare * 10.0;
             self.stats.speed =
                 (self.reactor_power as f64) * REACTOR_SPEED_PER_POWER * (pilot.rank as f64) * 10.0;
         } else {
