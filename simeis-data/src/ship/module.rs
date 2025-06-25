@@ -43,12 +43,10 @@ impl ShipModuleType {
     #[inline]
     pub fn get_price_buy(&self) -> f64 {
         match self {
-            ShipModuleType::Miner
-            | ShipModuleType::GasSucker => 4500.0,
+            ShipModuleType::Miner | ShipModuleType::GasSucker => 4500.0,
         }
     }
 }
-
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ShipModule {
@@ -100,6 +98,6 @@ impl ShipModule {
     pub fn extraction_rate(&self, resource: &Resource, oprank: u8, density: f64) -> f64 {
         let rank = ((oprank - resource.min_rank()) as f64) * (self.rank as f64);
         let difficulty = resource.extraction_difficulty().powf(EXRATE_DIFF_FACT);
-        density * (rank / difficulty).powf(EXRATE_FACT)
+        density * (rank / difficulty).powf(EXRATE_FACT) * 10.0
     }
 }
