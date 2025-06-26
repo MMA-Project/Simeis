@@ -53,6 +53,8 @@ def estimate_gain(kind, id, data):
         rank = data["crew"][id]["rank"]
         current_fee = 0.26 / (rank ** 1.15)
         new_fee = 0.26 / ((rank + 1) ** 1.15)
+        if new_fee <= 0.0001:
+            return 0
         gain_ratio = (current_fee * 100 / new_fee) if current_fee > 0 else 200.0
         return gain_ratio-100
     elif kind == "ship":
@@ -67,6 +69,7 @@ def estimate_gain(kind, id, data):
         if id == "ReactorUpgrade":
             current = data["reactor_power"]
             new = current + 1
+            if new > 20: return 0
         elif id == "CargoExpansion":
             current = data["cargo"]["capacity"]
             new = current + 100
@@ -76,10 +79,11 @@ def estimate_gain(kind, id, data):
         elif id == "Shield":
             current = data["shield_power"]
             new = current + 0.01
+            if new > 20: return 0
         else:
             return 0.0
         #print(f"[🔧] Estimating gain for {data}: current={current}, new={new}")
-        gain_ratio = (new*100 / current) if current > 0 else 200.0
+        gain_ratio = (new*100 / current) if current > 0 else 110.0
         return gain_ratio-100
 
     return 0.0
@@ -200,6 +204,7 @@ class Game:
         # Buy the mining module
         all = self.get(f"/station/{sta}/shop/modules")
         mod_id = self.get(f"/station/{sta}/shop/modules/{sid}/buy/{modtype}")["id"]
+        print("[💰] Bought a {} module for our ship {} (ID: {})".format(modtype, sid, mod_id))
 
         # Check if we have the crew assigned on this module
         # If not, hire an operator, and assign it to the mining module of our ship
@@ -207,6 +212,9 @@ class Game:
         if not check_has(ship["crew"], "member_type", "Operator"):
             op = self.get(f"/station/{sta}/crew/hire/operator")["id"]
             self.get(f"/station/{sta}/crew/assign/{op}/{sid}/{mod_id}")
+            self.get(f"/station/{sta}/crew/upgrade/ship/{sid}/{op}")
+            print("[👨‍🔧] Hired an operator, assigned it on the mining module of our ship")
+            
 
     def hire_first_pilot(self, sta, ship):
         # Hire a pilot, and assign it to our ship
@@ -315,7 +323,7 @@ class Game:
     # - Fill our cargo with resources
     # - Once the cargo is full, we stop mining, and this function returns
     def go_mine(self):
-        print("[*] Starting the Mining operation")
+        print("[⛏] Starting the Mining operation")
 
         # Scan the galaxy sector, detect which planet is the nearest
         station = self.get(f"/station/{self.sta}")
@@ -336,7 +344,7 @@ class Game:
         ship = self.get(f"/ship/{self.sid}")
         if not check_has(ship["modules"], "modtype", modtype):
             self.buy_first_mining_module(modtype, self.sta, self.sid)
-        print("[*] Targeting planet at", nearest["position"])
+        print("[🪐] Targeting planet at", nearest["position"])
 
         self.wait_idle(self.sid) # If we are currently occupied, wait
 
@@ -369,18 +377,23 @@ class Game:
 
         # Unload the cargo and sell it directly on the market
         for res, amnt in ship["cargo"]["resources"].items():
+            total_unloaded = 0.0
+            total_earned = 0.0
             amt_left = amnt
+
             while amt_left > 0.0:
-                # Unload as much as possible (the API may unload less than requested)
                 unloaded = self.get(f"/ship/{self.sid}/unload/{res}/{amt_left}")
                 unloaded_amt = unloaded["unloaded"]
                 if unloaded_amt == 0.0:
                     break
+
                 sold = self.get(f"/market/{self.sta}/sell/{res}/{unloaded_amt}")
-                print("[💲] Unloaded and sold {} of {}, for {} credits".format(
-                    unloaded_amt, res, sold["added_money"]
-                ))
+                total_unloaded += unloaded_amt
+                total_earned += sold["added_money"]
                 amt_left -= unloaded_amt
+
+            if total_unloaded > 0:
+                print(f"[💲] Unloaded and sold {total_unloaded:.1f} of {res}, total gain: {total_earned:.1f} credits")
 
         self.ship_repair(self.sid)
         self.ship_refuel(self.sid)
@@ -425,7 +438,7 @@ class Game:
         # Trader upgrade
         price = station_upgrades["trader-upgrade"]
         gain = estimate_gain("trader", str(station["trader"]), station)
-        #upgrades.append(("trader", str(station["trader"]), price, gain))
+        upgrades.append(("trader", str(station["trader"]), price, gain))
         
         # New ship
         for ship_data in available:
@@ -440,32 +453,61 @@ class Game:
         # Seuil de ratio
         top_ratio = upgrades[0][3] / upgrades[0][2]
         min_ratio = top_ratio * (1.0 - 0.10)
-        moneyMinCap = money*0.2
+        moneyMinCap = money*0.1
 
-        # Appliquer dans l'ordre
-        for kind, id_, price, gain in upgrades:  
+        while upgrades:
+            kind, id_, price, gain = upgrades[0]
             ratio = gain / price
+
             if ratio < min_ratio:
-                print(f"[❌] Not to upgrade {kind} {id_}: gain={gain:.1f}, cost={price}")
+                print(f"[❌] Skipping {kind} {id_}: ratio too low ({ratio:.4f}) price={price:.1f}, gain={gain:.1f})")
+                upgrades.pop(0)  # Enlever de la liste
                 continue
-            print(f"[🌐] Need to upgrade {kind} {id_}: gain={gain:.1f}, cost={price}")
-            while money > price+moneyMinCap:
-                try:
-                    if kind == "module":
-                        res = self.get(f"/station/{self.sta}/shop/modules/{self.sid}/upgrade/{id_}")
-                        print(f"[⏫] Module {id_} upgraded: gain={gain:.1f}, cost={price}")
-                    elif kind == "crew":
-                        res = self.get(f"/station/{self.sta}/crew/upgrade/ship/{self.sid}/{id_}")
-                        print(f"[⏫] Crew {id_} {ship['crew'][id_]['member_type']} upgraded: gain={gain:.1f}, cost={price}")
-                    elif kind == "shipupgrade":
-                        res = self.get(f"/station/{self.sta}/shipyard/upgrade/{self.sid}/{id_}")
-                        print(f"[⏫] Ship upgrade {id_}: gain={gain:.1f}, cost={price}")
-                    elif kind == "trader":
-                        res = self.get(f"/station/{self.sta}/crew/upgrade/trader")
-                        print(f"[⏫] Trader {id_} in station {self.sta} upgraded: gain={gain:.1f}, cost={price}")
-                    money -= price
-                except SimeisError as e:
-                    print(f"[!] Upgrade {kind} {id_} failed:", e)
+
+            if money <= price + moneyMinCap:
+                print(f"[💸] Not enough money for {kind} {id_}: need {price:.1f}, have {money:.1f}, gain={gain:.1f}%")
+                upgrades.pop(0)
+                continue
+
+            try:
+                if kind == "module":
+                    res = self.get(f"/station/{self.sta}/shop/modules/{self.sid}/upgrade/{id_}")
+                    print(f"[⏫] Module {id_} upgraded for {price:.1f} & gain {gain:.1f}%")
+                elif kind == "crew":
+                    res = self.get(f"/station/{self.sta}/crew/upgrade/ship/{self.sid}/{id_}")
+                    print(f"[⏫] Crew {id_} upgraded for {price:.1f} & gain {gain:.1f}%")
+                elif kind == "shipupgrade":
+                    res = self.get(f"/station/{self.sta}/shipyard/upgrade/{self.sid}/{id_}")
+                    print(f"[⏫] Ship upgrade {id_} for {price:.1f} & gain {gain:.1f}%")
+                elif kind == "trader":
+                    res = self.get(f"/station/{self.sta}/crew/upgrade/trader")
+                    print(f"[⏫] Trader upgraded for {price:.1f} & gain {gain:.1f}%")
+                money -= price
+            except SimeisError as e:
+                print(f"[!] Upgrade {kind} {id_} failed:", e)
+                upgrades.pop(0)
+                continue
+
+            if kind == "module":
+                mod_preview = self.get(f"/station/{self.sta}/shop/modules/{self.sid}/upgrade")
+                price = mod_preview[str(id_)]["price"]
+                gain = estimate_gain("module", id_, ship)
+            elif kind == "crew":
+                crew_preview = self.get(f"/station/{self.sta}/crew/upgrade/ship/{self.sid}")
+                price = crew_preview[str(id_)]["price"]
+                gain = estimate_gain("crew", id_, ship)
+            elif kind == "shipupgrade":
+                gain = estimate_gain("shipupgrade", id_, ship)
+            elif kind == "trader":
+                station_upgrades = self.get(f"/station/{self.sta}/upgrades")
+                price = station_upgrades["trader-upgrade"]
+                gain = estimate_gain("trader", id_, station)
+
+            upgrades[0] = (kind, id_, price, gain)
+            upgrades.sort(key=lambda u: u[3] / u[2], reverse=True)
+
+            top_ratio = upgrades[0][3] / upgrades[0][2]
+            min_ratio = top_ratio * (1.0 - 0.10)
         print(f"[💰] Money left after upgrades: {money:.2f} credits")
                 
 def launch_galaxy_map(game):

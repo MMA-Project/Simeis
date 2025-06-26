@@ -49,7 +49,7 @@ impl Player {
         if name.starts_with("test-rich") {
             money *= 10000.0;
         }
-        let mut stations: BTreeMap<u16, (u32, u32, u32)> = BTreeMap::new();
+        let mut stations = BTreeMap::new();
         stations.insert(station.0, station.1);
         Player {
             created: Instant::now(),
@@ -67,11 +67,16 @@ impl Player {
         }
     }
 
-    // SAFETY NOTE Only use this function when a &mut Station is NOT present, or deadlock
+    // SAFETY Will deadlock if a &mut station exists when this is called
     pub async fn update_wages(&mut self, galaxy: &Galaxy) {
         self.costs = 0.0;
+        let mut stations = vec![];
         for coord in self.stations.values() {
-            let station = galaxy.get_station(coord).await.unwrap();
+            stations.push(galaxy.get_station(coord).await.unwrap());
+        }
+
+        for station in stations {
+            // Deadlock because of this
             let station = station.read().await;
             self.costs += station.crew.sum_wages();
             self.costs += station.idle_crew.sum_wages();
@@ -80,8 +85,7 @@ impl Player {
             .ships
             .values()
             .map(|ship| ship.crew.sum_wages())
-            .sum::<f64>()
-            * 10.0;
+            .sum::<f64>();
     }
 
     pub async fn update_money(&mut self, syslog: &SyslogRecv, tdelta: f64) {

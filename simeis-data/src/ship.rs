@@ -169,9 +169,9 @@ impl Ship {
             debug_assert!(matches!(pilot.member_type, CrewMemberType::Pilot));
             // TODO Handle case where pilot rank > PILOT_FUEL_SHARE * 10
             let totshare = (PILOT_FUEL_SHARE * 10) as f64;
-            self.stats.fuel_consumption *= (totshare - (pilot.rank as f64)) / totshare * 10.0;
+            self.stats.fuel_consumption *= (totshare - (pilot.rank as f64)) / totshare;
             self.stats.speed =
-                (self.reactor_power as f64) * REACTOR_SPEED_PER_POWER * (pilot.rank as f64) * 10.0;
+                (self.reactor_power as f64) * REACTOR_SPEED_PER_POWER * (pilot.rank as f64);
         } else {
             self.stats.speed = 0.0;
         };
@@ -179,9 +179,6 @@ impl Ship {
     }
 
     pub fn compute_travel_costs(&self, destination: SpaceCoord) -> Result<TravelCost, Errcode> {
-        let ShipState::Idle = self.state else {
-            return Err(Errcode::ShipNotIdle);
-        };
         let travel = Travel::new(destination);
         let cost = travel.compute_costs(self)?;
         Ok(cost)
