@@ -103,7 +103,7 @@ for (res, data) in resources.items():
     MAX[res] = data["base-price"]
 
 while True:
-    time.sleep(2)
+    time.sleep(1)
     os.system('cls' if os.name == 'nt' else 'clear')
     disp_market(resources)
     print("")
