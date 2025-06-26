@@ -15,14 +15,12 @@ jobs:
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Install make (and other build tools)
-        run: sudo apt-get update && sudo apt-get install -y build-essential
-
       - name: Install typst
         run: |
-          curl -sSf https://typst.app/install.sh | bash -s -- --yes
-          echo "$HOME/.typst/bin" >> $GITHUB_PATH
-          echo "PATH=\$PATH:$HOME/.typst/bin" >> $GITHUB_ENV
+            wget https://github.com/typst/typst/releases/latest/download/typst-x86_64-linux.tar.xz
+            tar -xf typst-x86_64-linux.tar.xz
+            sudo mv typst-x86_64-linux/typst /usr/local/bin
+
 
       - name: Run checks
         shell: bash
