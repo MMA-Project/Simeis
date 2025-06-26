@@ -22,6 +22,12 @@ jobs:
       - name: Update dependencies
         run: cargo update
 
+      - name: Prepare branch for commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b bot/dependency-update || git checkout bot/dependency-update
+
       - name: Commit & push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
@@ -35,5 +41,5 @@ jobs:
           branch: bot/dependency-update
           title: "chore(deps): update Rust dependencies"
           body: |
-            📦 Cette PR a été générée automatiquement pour mettre à jour les dépendances Rust via `cargo update`.
+            📦 This PR was automatically created to update Rust dependencies using `cargo update`.
           labels: bot/update
