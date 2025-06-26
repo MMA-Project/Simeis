@@ -16,8 +16,10 @@ jobs:
 
             - name: Install typst
               run: |
-                curl -sSf https://typst.app/install.sh | bash -s -- --yes
-                echo "$HOME/.typst/bin" >> $GITHUB_PATH
+                    curl -sSf https://typst.app/install.sh | bash -s -- --yes
+                    echo "$HOME/.typst/bin" >> $GITHUB_PATH
+                    echo "PATH=\$PATH:$HOME/.typst/bin" >> $GITHUB_ENV
+
             
             - name: Run checks
               run: make check
