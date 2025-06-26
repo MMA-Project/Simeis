@@ -2,7 +2,7 @@ name: Auto Update Rust Dependencies
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Every Sunday at midnight
+    - cron: '0 0 * * 0'  # Every Sunday at midnight
   workflow_dispatch:
 
 jobs:
@@ -19,23 +19,22 @@ jobs:
       - name: Install cargo-edit
         run: cargo install cargo-edit
 
-      - name: Update dependencies
-        run: cargo update
-
-      - name: Prepare branch for commit
+      - name: Create temporary branch and update dependencies
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
-          git checkout -B bot/dependency-update origin/main
+          git checkout -b temp-deps-update origin/main
+          cargo update
 
-      - name: Commit & push changes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore(deps): upgrade Rust dependencies"
-          branch: bot/dependency-update
-          file_pattern: "Cargo.toml Cargo.lock"
-          push_options: '--force'
+      - name: Commit & force push to target branch
+        run: |
+          git add Cargo.toml Cargo.lock
+          git commit -m "chore(deps): upgrade Rust dependencies" || echo "No changes to commit"
+          git push -f origin temp-deps-update:bot/dependency-update
+
+      - name: Checkout main (to avoid branch conflict for PR)
+        run: git checkout origin/main
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
