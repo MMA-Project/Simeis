@@ -65,8 +65,6 @@ def estimate_gain(kind, id, data):
         new_ships = current_ships + 1
         gain_ratio = (new_ships * 100 / current_ships) if current_ships > 0 else 200.0
         return gain_ratio - 100
-        
-
     elif kind == "shipupgrade":
         # Accès à la stat modifiée selon le type
         if id == "ReactorUpgrade":
@@ -375,8 +373,6 @@ class Game:
         if ship["position"] != station["position"]:
             self.travel(ship["id"], station["position"])
         print("[📡] Arrived at station, unloading cargo")
-        # Unload the cargo and sell it directly on the market
-        print(ship["cargo"]["resources"].items())
         
         # Sell resources from station cargo if it's full before unloading ship
         station_cargo = station["cargo"]
@@ -386,6 +382,7 @@ class Game:
                     sold = self.get(f"/market/{self.sta}/sell/{res}/{amt}")
                     print(f"[💲] Sold {amt:.1f} of {res} from station cargo, gain: {sold['added_money']:.1f} credits")
         
+        # Unload the cargo and sell it directly on the market
         for res, amnt in ship["cargo"]["resources"].items():
             total_unloaded = 0.0
             total_earned = 0.0
@@ -452,7 +449,6 @@ class Game:
         upgrades.append(("trader", str(station["trader"]), price, gain))
         
         # New ship
-        print(available)
         for ship_data in available:
             ship_id = ship_data["id"]
             price = ship_data["price"]+30000
@@ -467,7 +463,6 @@ class Game:
         min_ratio = top_ratio * (1.0 - 0.10)
         moneyMinCap = money*0.1
         upgradeCap = 50
-        print(upgrades)
         while upgrades:
             kind, id_, price, gain = upgrades[0]
             ratio = gain / price
@@ -497,7 +492,7 @@ class Game:
                     print(f"[⏫] Trader upgraded for {price:.1f} & gain {gain:.1f}%")
                 elif kind == "ship":
                     res = self.get(f"/station/{self.sta}/shipyard/buy/{id_}")
-                    threading.Thread(target=ship_loop, args=(id_,), daemon=True).start()
+                    threading.Thread(target=ship_loop, args=(self,id_), daemon=True).start()
                     print(f"[🚀] Bought new ship {id_} for {price:.1f} & gain {gain:.1f}%")
                 money -= price
                 upgradeCap -= 1
@@ -622,7 +617,7 @@ def launch_terminal_hud(game):
         while True:
             try:
                 live.update(render_status(game))
-                time.sleep(0.5)
+                time.sleep(0.1)
             except Exception as e:
                 print(f"[!] Error in terminal HUD: {e}")
                 time.sleep(1)
