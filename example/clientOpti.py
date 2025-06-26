@@ -1,5 +1,5 @@
 PORT=8080
-URL=f"http://127.0.0.1:{PORT}"
+URL=f"http://103.45.247.164:{PORT}"
 
 RESOURCE_VALUE = {
     "Ozone": 100,
@@ -51,6 +51,8 @@ def estimate_gain(kind, id, data):
     
     elif kind == "trader":
         rank = data["crew"][id]["rank"]
+        if rank+1 > 20:
+            return 0
         current_fee = 0.26 / (rank ** 1.15)
         new_fee = 0.26 / ((rank + 1) ** 1.15)
         if new_fee <= 0.0001:
@@ -612,10 +614,14 @@ if __name__ == "__main__":
     threading.Thread(target=launch_terminal_hud, args=(game,), daemon=True).start()
 
     while True:
-        print("")
-        game.go_mine()
-        game.go_sell()
-        game.optimize_upgrades()
+        try:
+            print("")
+            game.go_mine()
+            game.go_sell()
+            game.optimize_upgrades()
+        except Exception as e:
+            print(f"[!] Error during game loop: {e}")
+            time.sleep(1)
 
 
 
