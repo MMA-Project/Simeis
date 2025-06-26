@@ -1,5 +1,6 @@
 PORT=8080
-URL=f"http://103.45.247.164:{PORT}"
+#URL=f"http://103.45.247.164:{PORT}"
+URL=f"http://127.0.0.1:{PORT}"
 
 RESOURCE_VALUE = {
     "Ozone": 100,
@@ -99,7 +100,7 @@ class Game:
 
         # Useful for our game loops
         self.pid = self.player["playerId"] # ID of our player
-        self.sid = None    # ID of our ship
+        self.sids = []  # List of all ships we own
         self.sta = None    # ID of our station
 
     def get(self, path, **qry):
@@ -260,7 +261,7 @@ class Game:
 
         if station["resources"]["HullPlate"] > 0:
             # Use the plates in stock to repair the ship
-            repair = self.get(f"/station/{self.sta}/repair/{self.sid}")
+            repair = self.get(f"/station/{self.sta}/repair/{sid}")
             print("[🔧] Repaired {} hull plates on the ship".format(repair["added-hull"]))
 
     # Refuel the ship:    Buy the fuel, then ask for a refill
@@ -284,7 +285,7 @@ class Game:
 
         if station["resources"]["Fuel"] > 0:
             # Use the fuel in stock to refill the ship
-            refuel = self.get(f"/station/{self.sta}/refuel/{self.sid}")
+            refuel = self.get(f"/station/{self.sta}/refuel/{sid}")
             print("[⛽] Refilled {} fuel on the ship".format(
                 refuel["added-fuel"],
             ))
@@ -311,12 +312,9 @@ class Game:
             self.buy_first_ship(self.sta)
             status = self.get(f"/player/{self.pid}") # Update our status
         ship = status["ships"][0]
-        self.sid = ship["id"]
-
-        # Ensure our ship has a crew, hire one if we don't
-        if not check_has(ship["crew"], "member_type", "Pilot"):
-            self.hire_first_pilot(self.sta, self.sid)
-            print("[👨‍✈️] Hired a pilot, assigned it on ship", self.sid)
+        
+        ships = status["ships"]
+        self.sids = [s["id"] for s in ships]
 
         print("[*] Game initialisation finished successfully")
 
@@ -324,8 +322,8 @@ class Game:
     # - Go there
     # - Fill our cargo with resources
     # - Once the cargo is full, we stop mining, and this function returns
-    def go_mine(self):
-        print("[⛏] Starting the Mining operation")
+    def go_mine(self,sid):
+        print("[💎] Starting the Mining operation")
 
         # Scan the galaxy sector, detect which planet is the nearest
         station = self.get(f"/station/{self.sta}")
@@ -343,48 +341,58 @@ class Game:
             modtype = "GasSucker"
 
         # Ensure the ship has a corresponding module, buy one if we don't
-        ship = self.get(f"/ship/{self.sid}")
+        ship = self.get(f"/ship/{sid}")
         if not check_has(ship["modules"], "modtype", modtype):
-            self.buy_first_mining_module(modtype, self.sta, self.sid)
+            self.buy_first_mining_module(modtype, self.sta, sid)
         print("[🪐] Targeting planet at", nearest["position"])
 
-        self.wait_idle(self.sid) # If we are currently occupied, wait
+        self.wait_idle(sid) # If we are currently occupied, wait
 
         # If we are not current at the position of the target planet, travel there
         if ship["position"] != nearest["position"]:
             self.travel(ship["id"], nearest["position"])
 
         # Now that we are there, let's start mining
-        info = self.get(f"/ship/{self.sid}/extraction/start")
-        print("[*] Starting extraction:")
+        info = self.get(f"/ship/{sid}/extraction/start")
+        print("[💎] Starting extraction:")
         for res, amnt in info.items():
             print(f"\t- Extraction of {res}: {amnt}/sec")
 
         # Wait until the cargo is full
-        self.wait_idle(self.sid) # The ship will have the state "Idle" once the cargo is full
-        print("[*] The cargo is full, stopping mining process")
+        self.wait_idle(sid) # The ship will have the state "Idle" once the cargo is full
+        print("[🚚] The cargo is full, stopping mining process")
 
     # - Go back to the station
     # - Unload all the cargo
     # - Sell it on the market
     # - Refuel & repair the ship
-    def go_sell(self):
-        self.wait_idle(self.sid) # If we are currently occupied, wait
-        ship = self.get(f"/ship/{self.sid}")
+    def go_sell(self,sid):
+        self.wait_idle(sid) # If we are currently occupied, wait
+        ship = self.get(f"/ship/{sid}")
         station = self.get(f"/station/{self.sta}")
 
         # If we aren't at the station, got there
         if ship["position"] != station["position"]:
             self.travel(ship["id"], station["position"])
-
+        print("[📡] Arrived at station, unloading cargo")
         # Unload the cargo and sell it directly on the market
+        print(ship["cargo"]["resources"].items())
+        
+        # Sell resources from station cargo if it's full before unloading ship
+        station_cargo = station["cargo"]
+        if station_cargo["usage"] >= station_cargo["capacity"]:
+            for res, amt in station_cargo["resources"].items():
+                if amt > 0:
+                    sold = self.get(f"/market/{self.sta}/sell/{res}/{amt}")
+                    print(f"[💲] Sold {amt:.1f} of {res} from station cargo, gain: {sold['added_money']:.1f} credits")
+        
         for res, amnt in ship["cargo"]["resources"].items():
             total_unloaded = 0.0
             total_earned = 0.0
             amt_left = amnt
 
             while amt_left > 0.0:
-                unloaded = self.get(f"/ship/{self.sid}/unload/{res}/{amt_left}")
+                unloaded = self.get(f"/ship/{sid}/unload/{res}/{amt_left}")
                 unloaded_amt = unloaded["unloaded"]
                 if unloaded_amt == 0.0:
                     break
@@ -397,20 +405,21 @@ class Game:
             if total_unloaded > 0:
                 print(f"[💲] Unloaded and sold {total_unloaded:.1f} of {res}, total gain: {total_earned:.1f} credits")
 
-        self.ship_repair(self.sid)
-        self.ship_refuel(self.sid)
+        print("[📡] Cargo unloaded, now refueling and repairing the ship")
+        self.ship_repair(sid)
+        self.ship_refuel(sid)
                 
-    def optimize_upgrades(self):
+    def optimize_upgrades(self,sid):
         player = self.get(f"/player/{self.pid}")
         money = player["money"]
-        ship = self.get(f"/ship/{self.sid}")
+        ship = self.get(f"/ship/{sid}")
         station= self.get(f"/station/{self.sta}")
 
         upgrades = []
 
         # Prévisualisation
-        mod_preview = self.get(f"/station/{self.sta}/shop/modules/{self.sid}/upgrade")
-        crew_preview = self.get(f"/station/{self.sta}/crew/upgrade/ship/{self.sid}")
+        mod_preview = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade")
+        crew_preview = self.get(f"/station/{self.sta}/crew/upgrade/ship/{sid}")
         ship_upgrades = self.get(f"/station/{self.sta}/shipyard/upgrade")
         station_upgrades = self.get(f"/station/{self.sta}/upgrades")
         available = self.get(f"/station/{self.sta}/shipyard/list")["ships"]
@@ -443,11 +452,12 @@ class Game:
         upgrades.append(("trader", str(station["trader"]), price, gain))
         
         # New ship
+        print(available)
         for ship_data in available:
             ship_id = ship_data["id"]
-            price = ship_data["price"]
+            price = ship_data["price"]+30000
             gain = estimate_gain("ship", ship_id, player)
-            #upgrades.append(("ship", ship_id, price, gain))
+            upgrades.append(("ship", ship_id, price, gain))
         
         # Trier par rentabilité
         upgrades.sort(key=lambda u: u[3] / u[2], reverse=True)
@@ -456,7 +466,8 @@ class Game:
         top_ratio = upgrades[0][3] / upgrades[0][2]
         min_ratio = top_ratio * (1.0 - 0.10)
         moneyMinCap = money*0.1
-
+        upgradeCap = 50
+        print(upgrades)
         while upgrades:
             kind, id_, price, gain = upgrades[0]
             ratio = gain / price
@@ -473,29 +484,37 @@ class Game:
 
             try:
                 if kind == "module":
-                    res = self.get(f"/station/{self.sta}/shop/modules/{self.sid}/upgrade/{id_}")
+                    res = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade/{id_}")
                     print(f"[⏫] Module {id_} upgraded for {price:.1f} & gain {gain:.1f}%")
                 elif kind == "crew":
-                    res = self.get(f"/station/{self.sta}/crew/upgrade/ship/{self.sid}/{id_}")
+                    res = self.get(f"/station/{self.sta}/crew/upgrade/ship/{sid}/{id_}")
                     print(f"[⏫] Crew {id_} upgraded for {price:.1f} & gain {gain:.1f}%")
                 elif kind == "shipupgrade":
-                    res = self.get(f"/station/{self.sta}/shipyard/upgrade/{self.sid}/{id_}")
+                    res = self.get(f"/station/{self.sta}/shipyard/upgrade/{sid}/{id_}")
                     print(f"[⏫] Ship upgrade {id_} for {price:.1f} & gain {gain:.1f}%")
                 elif kind == "trader":
                     res = self.get(f"/station/{self.sta}/crew/upgrade/trader")
                     print(f"[⏫] Trader upgraded for {price:.1f} & gain {gain:.1f}%")
+                elif kind == "ship":
+                    res = self.get(f"/station/{self.sta}/shipyard/buy/{id_}")
+                    threading.Thread(target=ship_loop, args=(id_,), daemon=True).start()
+                    print(f"[🚀] Bought new ship {id_} for {price:.1f} & gain {gain:.1f}%")
                 money -= price
+                upgradeCap -= 1
+                if upgradeCap <= 0:
+                    print("[❗] Upgrade cap reached, stopping upgrades")
+                    break
             except SimeisError as e:
                 print(f"[!] Upgrade {kind} {id_} failed:", e)
                 upgrades.pop(0)
                 continue
 
             if kind == "module":
-                mod_preview = self.get(f"/station/{self.sta}/shop/modules/{self.sid}/upgrade")
+                mod_preview = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade")
                 price = mod_preview[str(id_)]["price"]
                 gain = estimate_gain("module", id_, ship)
             elif kind == "crew":
-                crew_preview = self.get(f"/station/{self.sta}/crew/upgrade/ship/{self.sid}")
+                crew_preview = self.get(f"/station/{self.sta}/crew/upgrade/ship/{sid}")
                 price = crew_preview[str(id_)]["price"]
                 gain = estimate_gain("crew", id_, ship)
             elif kind == "shipupgrade":
@@ -575,10 +594,10 @@ def render_status(game):
         lines.append(f"-> Station {station['id']}")
         lines.append(f"   - Pos       : {station['position']}")
         lines.append(f"   - Trader    : {station['crew'][str(station['trader'])]['member_type']} (Rank {station['crew'][str(station['trader'])]['rank']})")
-        # lines.append(f"   - Cargo     : {round(station['cargo']['usage'], 2)} / {station['cargo']['capacity']}")
-        # lines.append(f"   - Resources : {station['cargo']['resources']}")
+        lines.append(f"   - Cargo     : {round(station['cargo']['usage'], 2)} / {station['cargo']['capacity']}")
+        lines.append(f"   - Resources : {station['cargo']['resources']}")
     lines.append("=== SHIPS ===")
-    for ship in status["ships"]:
+    for ship in status["ships"][:2]:
         sid = ship["id"]
         lines.append(f"-> Ship {sid}")
         lines.append(f"   - Pos       : {ship['position']}")
@@ -601,9 +620,29 @@ def launch_terminal_hud(game):
     console = Console()
     with Live(render_status(game), console=console, refresh_per_second=100) as live:
         while True:
-            live.update(render_status(game))
-            time.sleep(0.5)
-
+            try:
+                live.update(render_status(game))
+                time.sleep(0.5)
+            except Exception as e:
+                print(f"[!] Error in terminal HUD: {e}")
+                time.sleep(1)
+            
+def ship_loop(game, sid):
+    # Ensure our ship has a crew, hire one if we don't
+    ship = game.get(f"/ship/{sid}")
+    if not check_has(ship["crew"], "member_type", "Pilot"):
+        game.hire_first_pilot(game.sta, ship["id"])
+        print("[👨‍✈️] Hired a pilot, assigned it on ship", ship["id"])
+    while True:
+        try:
+            print("")
+            game.go_mine(sid=sid)
+            game.go_sell(sid=sid)
+            game.optimize_upgrades(sid=sid)
+        except Exception as e:
+            print(f"[!] Error during ship loop: {e}")
+            time.sleep(1)
+            
 if __name__ == "__main__":
     name = sys.argv[1]
     game = Game(name)
@@ -612,16 +651,17 @@ if __name__ == "__main__":
     # threading.Thread(target=launch_galaxy_map, args=(game,), daemon=True).start()
     # Lancer l'HUD dans un thread
     threading.Thread(target=launch_terminal_hud, args=(game,), daemon=True).start()
-
-    while True:
-        try:
-            print("")
-            game.go_mine()
-            game.go_sell()
-            game.optimize_upgrades()
-        except Exception as e:
-            print(f"[!] Error during game loop: {e}")
+    
+    try:
+        # Lancer le jeu pour chaque vaisseau
+        for sid in game.sids:
+            threading.Thread(target=ship_loop, args=(game, sid), daemon=True).start()
+        while True:
             time.sleep(1)
+    except Exception as e:
+        print(f"[!] Error starting game threads: {e}")
+        sys.exit(1)
+
 
 
 
