@@ -33,14 +33,15 @@ jobs:
           git commit -m "chore(deps): upgrade Rust dependencies" || echo "No changes to commit"
           git push -f origin temp-deps-update:bot/dependency-update
 
-      - name: Checkout main (to avoid branch conflict for PR)
-        run: git checkout origin/main
+      - name: Checkout main (to avoid HEAD issues)
+        run: git checkout main
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           branch: bot/dependency-update
+          base: main
           title: "chore(deps): update Rust dependencies"
           body: |
-            This PR was automatically created to update Rust dependencies using `cargo update`.
+            📦 This PR was automatically created to update Rust dependencies using `cargo update`.
           labels: bot/update
