@@ -1,5 +1,5 @@
 PORT=8080
-URL=f"http://127.0.0.1:{PORT}"
+URL=f"http://103.45.247.164:{PORT}"
 
 RESOURCE_VALUE = {
     "Ozone": 100,
@@ -52,7 +52,7 @@ class Game:
             ])
 
         qry = f"{URL}{path}{tail}"
-        reply = urllib.request.urlopen(qry, timeout=1)
+        reply = urllib.request.urlopen(qry, timeout=2)
 
         data = json.loads(reply.read().decode())
         err = data.pop("error")
@@ -141,9 +141,17 @@ class Game:
 
     def wait_idle(self, sid, ts=2):
         ship = self.get(f"/ship/{sid}")
-        while ship["state"] != "Idle":
-            time.sleep(ts)
-            ship = self.get(f"/ship/{sid}")
+        for res, amnt in ship["cargo"]["resources"].items():
+            if amnt > 0:
+                print(f"[*] Current cargo: {amnt} of {res}")
+            while amnt <= 180:
+                time.sleep(ts)
+                ship = self.get(f"/ship/{sid}")
+                for res, amnt in ship["cargo"]["resources"].items():
+                    if amnt > 180:
+                        print(f"[*] Current cargo: {amnt} of {res}")
+                        self.get(f"/ship/{sid}/extraction/stop")
+
 
     # Repair the ship:     Buy the plates, then ask for reparation
     def ship_repair(self, sid):
@@ -237,7 +245,6 @@ class Game:
         # Scan the galaxy sector, detect which planet is the nearest
         station = self.get(f"/station/{self.sta}")
         planets = self.get(f"/station/{self.sta}/scan")["planets"]
-        print("planets: ", planets)
         nearest = sorted(planets,
             key=lambda pla: get_dist(station["position"], pla["position"])
         )[0]
@@ -266,9 +273,13 @@ class Game:
         print("[*] Starting extraction:")
         for res, amnt in info.items():
             print(f"\t- Extraction of {res}: {amnt}/sec")
+        
 
         # Wait until the cargo is full
         self.wait_idle(self.sid) # The ship will have the state "Idle" once the cargo is full
+        for res, amnt in ship["cargo"]["resources"].items():
+            if amnt > 0:
+                print(f"[*] Current cargo: {amnt} of {res}")
         print("[*] The cargo is full, stopping mining process")
 
     # - Go back to the station
@@ -288,6 +299,7 @@ class Game:
         for res, amnt in ship["cargo"]["resources"].items():
             if amnt == 0.0:
                 continue
+            print("\tCurrent cargo: {} of {}".format(amnt, res))
             unloaded = self.get(f"/ship/{self.sid}/unload/{res}/{amnt}")
             sold = self.get(f"/market/{self.sta}/sell/{res}/{amnt}")
             print("[*] Unloaded and sold {} of {}, for {} credits".format(
