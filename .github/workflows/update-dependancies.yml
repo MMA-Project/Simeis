@@ -2,7 +2,7 @@ name: Auto Update Rust Dependencies
 
 on:
   schedule:
-    - cron: '0 7 * * 1'  # Every monday at 07:00 UTC
+    - cron: '*/2 * * * *'  # Every monday at 07:00 UTC
   workflow_dispatch:
 
 jobs:
