@@ -1,39 +1,42 @@
 name: CI checks and tests
+
 on:
-    push:
-        branches: [main]
-    pull_request:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
-    check:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Set up Rust
-              uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
-            - name: Install make (not included by default on ubuntu-latest)
-              run: sudo apt-get update && sudo apt-get install -y make
+      - name: Install make (and other build tools)
+        run: sudo apt-get update && sudo apt-get install -y build-essential
 
+      - name: Install typst
+        run: |
+          curl -sSf https://typst.app/install.sh | bash -s -- --yes
+          echo "$HOME/.typst/bin" >> $GITHUB_PATH
+          echo "PATH=\$PATH:$HOME/.typst/bin" >> $GITHUB_ENV
 
-            - name: Install typst
-              run: |
-                    curl -sSf https://typst.app/install.sh | bash -s -- --yes
-                    echo "$HOME/.typst/bin" >> $GITHUB_PATH
-                    echo "PATH=\$PATH:$HOME/.typst/bin" >> $GITHUB_ENV
+      - name: Run checks
+        shell: bash
+        run: make check
 
-            
-            - name: Run checks
-              run: make check
+      - name: Run tests
+        shell: bash
+        run: make test
 
-            - name: Run tests
-              run: make test
-            
-            - name: Build manual
-              run: make manual
+      - name: Build manual
+        shell: bash
+        run: make manual
 
-            - name: Build release (main only)
-              if: github.ref == 'refs/heads/main'
-              run: make release
+      - name: Build release (main only)
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: make release
