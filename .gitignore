@@ -1,5 +1,7 @@
 target
 .cargohome
 result
+logs
+*.json
 *.zip
 .~lock.*.ods#
