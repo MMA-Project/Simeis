@@ -30,6 +30,16 @@ jobs:
         shell: bash
         run: make test
 
+      - name: Run heavy-testing
+        if: startsWith(github.event.pull_request.head.ref, 'release/')
+        shell: bash
+        run: cargo test --features heavy-testing
+      
+      - name: Cargo-Audit
+        if: (github.event_name == 'push' || github.event_name == 'pull_request') && startsWith(github.event.pull_request.head.ref, 'release/')
+        shell: bash
+        run: cargo install cargo-audit && cargo audit
+
       - name: Build manual
         shell: bash
         run: make manual
