@@ -313,7 +313,7 @@ class Game:
     # - Once the cargo is full, we stop mining, and this function returns
     def go_mine(self, sid, logger):
         logger.log("[💎] Starting mining operation for ship", sid)
-
+        player = self.get(f"/player/{self.pid}")
         station = self.get(f"/station/{self.sta}")
         planets = self.get(f"/station/{self.sta}/scan")["planets"]
         num_solid = sum(1 for p in planets if p["solid"])
@@ -321,7 +321,7 @@ class Game:
         ship = self.get(f"/ship/{sid}")
 
         # Cas spécial : les deux premiers vaisseaux ou les systèmes monotype ignorent le marché
-        if len(self.sids) < 2 or not (num_solid > 0 and num_gas > 0):
+        if len(player["ships"]) < 2 or not (num_solid > 0 and num_gas > 0):
             nearest = sorted(planets, key=lambda p: get_dist(station["position"], p["position"]))[0]
             modtype = "Miner" if nearest["solid"] else "GasSucker"
 
@@ -443,18 +443,20 @@ class Game:
                     logger.log(f"[🔄] Too much Logistic loop completed, time to make the station great again")
                     unitcargoprice=self.get(f"/station/{self.sta}/upgrades")["cargo-expansion"]
                     new_cargo_price=unitcargoprice*59000
-                    max_spend = total_earned * 0.9
-                    if new_cargo_price > max_spend:
-                        # Acheter seulement ce qu'on peut se permettre (max_spend)
-                        affordable_units = max_spend // unitcargoprice
-                        if affordable_units > 0:
-                            logger.log(f"[⚠️] Cargo upgrade cost {new_cargo_price:.1f} exceeds 90% of earned ({max_spend:.1f}), buying only {affordable_units:.0f} units")
-                            self.get(f"/station/{self.sta}/shop/cargo/buy/{int(affordable_units)}")
-                        else:
-                            logger.log(f"[⚠️] Cargo upgrade cost {new_cargo_price:.1f} exceeds 90% of earned ({max_spend:.1f}), skipping upgrade")
-                    else:
+                    if new_cargo_price == 59000:           
                         logger.log(f"[⚙️] Upgrading cargo capacity for {new_cargo_price:.1f} credits")
-                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(total_unloaded*2)}")
+                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(59000)}")
+                    # if new_cargo_price > max_spend:  
+                    #     # Acheter seulement ce qu'on peut se permettre (max_spend)
+                    #     affordable_units = max_spend // unitcargoprice
+                    #     if affordable_units > 0:
+                    #         logger.log(f"[⚠️] Cargo upgrade cost {new_cargo_price:.1f} exceeds 90% of earned ({max_spend:.1f}), buying only {affordable_units:.0f} units")
+                    #         self.get(f"/station/{self.sta}/shop/cargo/buy/{int(affordable_units)}")
+                    #     else:
+                    #         logger.log(f"[⚠️] Cargo upgrade cost {new_cargo_price:.1f} exceeds 90% of earned ({max_spend:.1f}), skipping upgrade")
+                    # else:
+                    #     logger.log(f"[⚙️] Upgrading cargo capacity for {new_cargo_price:.1f} credits")
+                    #     self.get(f"/station/{self.sta}/shop/cargo/buy/{int(59000)}")
 
         logger.log("[📡] Cargo unloaded, now refueling and repairing the ship")
         self.ship_repair(sid,logger)
