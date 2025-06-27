@@ -101,20 +101,19 @@ impl Galaxy {
         let mut objects = vec![];
         for (coord, obj) in self.objects.iter() {
             let (x, y, z) = coord;
-            if (x < &sector.0.0) || (x > &sector.0.1) {
+            if (x < &sector.0 .0) || (x > &sector.0 .1) {
                 continue;
             }
-            if (y < &sector.1.0) || (y > &sector.1.1) {
+            if (y < &sector.1 .0) || (y > &sector.1 .1) {
                 continue;
             }
-            if (z < &sector.2.0) || (z > &sector.2.1) {
+            if (z < &sector.2 .0) || (z > &sector.2 .1) {
                 continue;
             }
             objects.push(obj);
         }
         objects
     }
-
 
     pub async fn get_station(&self, coord: &SpaceCoord) -> Option<Arc<RwLock<station::Station>>> {
         let obj = self.get(coord)?;
@@ -144,7 +143,8 @@ impl Galaxy {
         let ind = self.generate_sector(&seccoord);
         let sector = self.discovered.get(ind).unwrap();
 
-        let Some(SpaceObject::Planet(pla)) = self.list_objects_in_sector(&sector)
+        let Some(SpaceObject::Planet(pla)) = self
+            .list_objects_in_sector(&sector)
             .iter()
             .filter(|obj| matches!(obj, SpaceObject::Planet(_)))
             .nth(0)
@@ -161,9 +161,17 @@ impl Galaxy {
             }
 
             let mut mindist = None;
-            for pla in self.list_objects_in_sector(&sector)
+            for pla in self
+                .list_objects_in_sector(&sector)
                 .iter()
-                .filter_map(|obj| if let SpaceObject::Planet(p) = obj { Some(p) } else { None }) {
+                .filter_map(|obj| {
+                    if let SpaceObject::Planet(p) = obj {
+                        Some(p)
+                    } else {
+                        None
+                    }
+                })
+            {
                 let dist = get_distance(&pla.position, &coord);
                 if let Some(ref mut m) = mindist {
                     if dist < *m {
@@ -185,7 +193,8 @@ impl Galaxy {
             }
         }
         let station = Arc::new(RwLock::new(station::Station::init(id, coord)));
-        self.insert(&coord, SpaceObject::BaseStation(station)).unwrap();
+        self.insert(&coord, SpaceObject::BaseStation(station))
+            .unwrap();
         return (id, coord);
     }
 
@@ -198,7 +207,7 @@ impl Galaxy {
                 results.add(rank, obj).await;
             }
         }
-        debug_assert!(results.planets.len() > 0);    // We should always have some planets
+        debug_assert!(results.planets.len() > 0); // We should always have some planets
         results
     }
 }
@@ -245,9 +254,12 @@ pub fn translation(start: SpaceCoord, direction: (f64, f64, f64), dist: f64) -> 
 }
 
 fn is_in_sector(coord: &SpaceCoord, sector: &GalaxySector) -> bool {
-    coord.0 >= sector.0.0 && coord.0 < sector.0.1
-    && coord.1 >= sector.1.0 && coord.1 < sector.1.1
-    && coord.2 >= sector.2.0 && coord.2 < sector.2.1
+    coord.0 >= sector.0 .0
+        && coord.0 < sector.0 .1
+        && coord.1 >= sector.1 .0
+        && coord.1 < sector.1 .1
+        && coord.2 >= sector.2 .0
+        && coord.2 < sector.2 .1
 }
 
 // TODO (#27)    Make this scan use a sphere from the center point
@@ -296,7 +308,7 @@ fn sectors_around(center: &SpaceCoord, radius: f64) -> Vec<GalaxySector> {
 
 fn get_rand_coord_near(obj: &SpaceCoord, dist: f64, rng: &mut ThreadRng) -> SpaceCoord {
     let theta = rng.random_range(0.0..2.0 * std::f64::consts::PI); // azimuthal angle
-    let phi = rng.random_range(0.0..std::f64::consts::PI);         // polar angle
+    let phi = rng.random_range(0.0..std::f64::consts::PI); // polar angle
     let x = (obj.0 as f64) + (dist * phi.sin() * theta.cos());
     let y = (obj.1 as f64) + (dist * phi.sin() * theta.sin());
     let z = (obj.2 as f64) + (dist * phi.cos());
@@ -313,11 +325,41 @@ fn test_compute_sector() {
         let sec = compute_sector(x, y, z);
         assert!(is_in_sector(&(x, y, z), &sec));
     }
-    assert_eq!(compute_sector(SECTOR_SIZE.0-1, 0, 0), ((0, SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (0, SECTOR_SIZE.2)));
-    assert_eq!(compute_sector(0, SECTOR_SIZE.1-1, 0), ((0, SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (0, SECTOR_SIZE.2)));
-    assert_eq!(compute_sector(0, 0, SECTOR_SIZE.2-1), ((0, SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (0, SECTOR_SIZE.2)));
+    assert_eq!(
+        compute_sector(SECTOR_SIZE.0 - 1, 0, 0),
+        ((0, SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (0, SECTOR_SIZE.2))
+    );
+    assert_eq!(
+        compute_sector(0, SECTOR_SIZE.1 - 1, 0),
+        ((0, SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (0, SECTOR_SIZE.2))
+    );
+    assert_eq!(
+        compute_sector(0, 0, SECTOR_SIZE.2 - 1),
+        ((0, SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (0, SECTOR_SIZE.2))
+    );
 
-    assert_eq!(compute_sector(SECTOR_SIZE.0, 0, 0), ((SECTOR_SIZE.0, 2*SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (0, SECTOR_SIZE.2)));
-    assert_eq!(compute_sector(0, SECTOR_SIZE.1, 0), ((0, SECTOR_SIZE.0), (SECTOR_SIZE.1, 2*SECTOR_SIZE.1), (0, SECTOR_SIZE.2)));
-    assert_eq!(compute_sector(0, 0, SECTOR_SIZE.2), ((0, SECTOR_SIZE.0), (0, SECTOR_SIZE.1), (SECTOR_SIZE.2, 2*SECTOR_SIZE.2)));
+    assert_eq!(
+        compute_sector(SECTOR_SIZE.0, 0, 0),
+        (
+            (SECTOR_SIZE.0, 2 * SECTOR_SIZE.0),
+            (0, SECTOR_SIZE.1),
+            (0, SECTOR_SIZE.2)
+        )
+    );
+    assert_eq!(
+        compute_sector(0, SECTOR_SIZE.1, 0),
+        (
+            (0, SECTOR_SIZE.0),
+            (SECTOR_SIZE.1, 2 * SECTOR_SIZE.1),
+            (0, SECTOR_SIZE.2)
+        )
+    );
+    assert_eq!(
+        compute_sector(0, 0, SECTOR_SIZE.2),
+        (
+            (0, SECTOR_SIZE.0),
+            (0, SECTOR_SIZE.1),
+            (SECTOR_SIZE.2, 2 * SECTOR_SIZE.2)
+        )
+    );
 }
