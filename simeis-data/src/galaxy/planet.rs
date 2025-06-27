@@ -42,8 +42,6 @@ impl Planet {
     pub fn resource_density(&self, resource: &Resource) -> f64 {
         if self.solid && resource.mineable(u8::MAX) {
             6.25
-        } else if !self.solid && resource.suckable(u8::MAX) {
-            6.25
         } else {
             0.0
         }
