@@ -43,12 +43,10 @@ impl ShipModuleType {
     #[inline]
     pub fn get_price_buy(&self) -> f64 {
         match self {
-            ShipModuleType::Miner
-            | ShipModuleType::GasSucker => 4500.0,
+            ShipModuleType::Miner | ShipModuleType::GasSucker => 4500.0,
         }
     }
 }
-
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ShipModule {
