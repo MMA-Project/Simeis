@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use scan::ScanResult;
@@ -362,4 +363,10 @@ fn test_compute_sector() {
             (SECTOR_SIZE.2, 2 * SECTOR_SIZE.2)
         )
     );
+}
+
+#[cfg(feature = "heavy_testing")]
+#[test]
+fn test_heavy_testing() {
+    assert!(false);
 }

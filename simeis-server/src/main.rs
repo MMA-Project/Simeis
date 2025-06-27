@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 use ntex::web;
 
 use simeis_data::game::Game;
@@ -22,7 +23,7 @@ async fn main() -> std::io::Result<()> {
         .filter_module("ntex::http::h1", log::LevelFilter::Warn)
         .init();
 
-    log::info!("Running on http://127.0.0.1:{port}");
+    log::info!("Running on http://0.0.0.0:{port}");
     let (gamethread, state) = Game::init();
     let game = state.clone();
 
@@ -33,10 +34,16 @@ async fn main() -> std::io::Result<()> {
             .configure(|srv| api::configure(srv))
     })
     .stop_runtime()
-    .bind(("127.0.0.1", port))?
+    .bind(("0.0.0.0", port))?
     .run()
     .await;
 
     game.stop(gamethread).await;
     res
+}
+
+#[cfg(feature = "heavy_testing")]
+#[test]
+fn test_heavy_testing() {
+    assert!(false);
 }

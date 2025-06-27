@@ -1,0 +1,55 @@
+name: CI checks and tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install typst
+        run: |
+          wget https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz
+          tar -xf typst-x86_64-unknown-linux-musl.tar.xz
+          sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin
+
+      - name: Run checks
+        shell: bash
+        run: make check
+
+      - name: Run tests
+        shell: bash
+        run: make test
+
+      - name: Build manual
+        shell: bash
+        run: make manual
+
+      - name: Build release (main only)
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: make release
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Clippy lints
+        run: cargo clippy

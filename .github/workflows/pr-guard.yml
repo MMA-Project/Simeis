@@ -1,0 +1,20 @@
+name: Guard release branch PRs
+
+on:
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  close-invalid-pr:
+    if: startsWith(github.event.pull_request.base.ref, 'release/') &&
+        !startsWith(github.event.pull_request.head.ref, 'main') &&
+        !startsWith(github.event.pull_request.head.ref, 'bug/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: superbrothers/close-pull-request@v3
+        with:
+          comment: |
+            This PR targets a `release/*` branch but must originate from `main` or `bug/*`.
+
+            Please open your pull request from one of the allowed branches.
