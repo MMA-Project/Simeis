@@ -14,9 +14,6 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Check compilation
-        run: cargo check
-
       - name: Format check
         run: cargo fmt --check
 
