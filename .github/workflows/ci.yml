@@ -33,7 +33,7 @@ jobs:
       - name: Run heavy-testing
         if: startsWith(github.event.pull_request.head.ref, 'release/')
         shell: bash
-        run: cargo test heavy-testing
+        run: cargo test --features heavy-testing
 
       - name: Build manual
         shell: bash
