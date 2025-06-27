@@ -30,6 +30,21 @@ jobs:
         shell: bash
         run: make test
 
+      - name: Run heavy-testing
+        if: startsWith(github.event.pull_request.head.ref, 'release/')
+        shell: bash
+        run: cargo test --features heavy-testing
+
+      - name: Cargo-Audit
+        if: startsWith(github.event.pull_request.head.ref, 'release/')
+        shell: bash
+        run: cargo install cargo-audit && cargo audit
+
+      - name: Check-deps
+        if: startsWith(github.event.pull_request.head.ref, 'release/')
+        shell: bash
+        run: python3 ./tototutu.py
+
       - name: Build manual
         shell: bash
         run: make manual
