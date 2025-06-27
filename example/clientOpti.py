@@ -1,6 +1,6 @@
 PORT=8080
-#URL=f"http://103.45.247.164:{PORT}"
-URL=f"http://127.0.0.1:{PORT}"
+URL=f"http://103.45.247.164:{PORT}"
+# URL=f"http://127.0.0.1:{PORT}"
 
 RESOURCE_VALUE = {
     "Ozone": 100,
@@ -321,7 +321,7 @@ class Game:
         ship = self.get(f"/ship/{sid}")
 
         # Cas spécial : les deux premiers vaisseaux ou les systèmes monotype ignorent le marché
-        if len(player["ships"]) < 2 or not (num_solid > 0 and num_gas > 0):
+        if len(player["ships"]) < 3 or not (num_solid > 0 and num_gas > 0):
             nearest = sorted(planets, key=lambda p: get_dist(station["position"], p["position"]))[0]
             modtype = "Miner" if nearest["solid"] else "GasSucker"
 
@@ -517,7 +517,7 @@ class Game:
         # Seuil de ratio
         top_ratio = upgrades[0][3] / upgrades[0][2]
         min_ratio = top_ratio * (1.0 - 0.10)
-        shipmoney = money / len(self.sids)
+        shipmoney = money / len(player["ships"])  # Money per ship
         moneyMinCap = shipmoney*0.1
         shipUpgradeCap = 100
         while upgrades:
@@ -561,6 +561,8 @@ class Game:
                 logger.log(f"[!] Upgrade {kind} {id_} failed:", e)
                 upgrades.pop(0)
                 continue
+            
+            #if moneyMinCap*
 
             if kind == "module":
                 mod_preview = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade")
