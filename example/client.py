@@ -139,7 +139,7 @@ class Game:
         print("[*] Traveling to {}, will take {}".format(pos, costs["duration"]))
         self.wait_idle(sid, ts=costs["duration"])
 
-    def wait_idle(self, sid, ts=2):
+    def wait_idle(self, sid, ts=2/30):
         ship = self.get(f"/ship/{sid}")
         for res, amnt in ship["cargo"]["resources"].items():
             if amnt > 0:
