@@ -17,12 +17,10 @@ import json
 import string
 import urllib.request
 import threading
-import plotly.graph_objs as go
 from rich.live import Live
 from rich.console import Console
-import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output
+from vispy import app, scene
+import numpy as np
 
 class SimeisError(Exception):
     pass
@@ -192,7 +190,6 @@ class Game:
         if not check_has(ship["crew"], "member_type", "Operator"):
             op = self.get(f"/station/{sta}/crew/hire/operator")["id"]
             self.get(f"/station/{sta}/crew/assign/{op}/{sid}/{mod_id}")
-            self.get(f"/station/{sta}/crew/upgrade/ship/{sid}/{op}")
             logger.log("[👨‍🔧] Hired an operator, assigned it on the mining module of our ship")
             
 
@@ -328,6 +325,7 @@ class Game:
             if not check_has(ship["modules"], "modtype", modtype):
                 logger.log(f"[🛠️] Buying module {modtype} for ship {sid}")
                 self.buy_mining_module(modtype, self.sta, sid, logger)
+                self.optimize_upgrades(sid, logger)
 
             logger.log(f"[🪐] Targeting nearest planet at {nearest['position']}")
             self.wait_idle(sid)
@@ -368,6 +366,7 @@ class Game:
 
             logger.log(f"[🛠️] Buying module {modtype} for ship {sid}")
             self.buy_mining_module(modtype, self.sta, sid, logger)
+            self.optimize_upgrades(sid, logger)
 
         is_solid = (modtype == "Miner")
         matching_planets = sorted(
@@ -562,7 +561,7 @@ class Game:
                 upgrades.pop(0)
                 continue
             
-            #if moneyMinCap*
+            ship = self.get(f"/ship/{sid}")
 
             if kind == "module":
                 mod_preview = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade")
@@ -573,7 +572,6 @@ class Game:
                 price = crew_preview[str(id_)]["price"]
                 gain = estimate_gain("crew", id_, ship)
             elif kind == "shipupgrade":
-                ship = self.get(f"/ship/{sid}")
                 gain = estimate_gain("shipupgrade", id_, ship)
             elif kind == "trader":
                 station_upgrades = self.get(f"/station/{self.sta}/upgrades")
@@ -588,62 +586,60 @@ class Game:
         logger.log(f"[💰] Ship money left after upgrades: {shipmoney:.2f} credits")
                 
 def launch_galaxy_map(game):
-    app = dash.Dash(__name__)
-    app.layout = html.Div([
-        html.H3("Carte de la galaxie 🚀", style={"color": "#fff"}),
-        dcc.Interval(id='interval', interval=1000, n_intervals=0),
-        dcc.Graph(id='galaxy-map')
-    ])
+    print(app.use_app())  # Prints active backend (e.g., PyQt5)
 
-    @app.callback(Output('galaxy-map', 'figure'), Input('interval', 'n_intervals'))
-    def update_map(n):
-        scan = game.get(f"/station/{game.sta}/scan")
-        gamestats= game.get(f"/gamestats")
-        planets = scan["planets"]
-        stations = scan["stations"]
-        # stations = []
-        # for player, data in gamestats.items():
-        #     for sta_id, pos in data["stations"].items():
-        #         stations.append({'id': int(sta_id), 'position': pos})
-        ships = game.get(f"/player/{game.pid}")["ships"]
+    # Create canvas and view
+    canvas = scene.SceneCanvas(keys='interactive', show=True, bgcolor='black')
+    view = canvas.central_widget.add_view()
+    view.camera = scene.cameras.TurntableCamera(fov=45)
 
-        fig = go.Figure()
+    # Visual layers
+    planet_markers = scene.visuals.Markers()
+    station_markers = scene.visuals.Markers()
+    ship_markers = scene.visuals.Markers()
 
-        # Cache planets and stations positions to avoid re-adding them every interval
-        if not hasattr(update_map, "static_traces"):
-            static_traces = []
-            for p in planets:
-                x, y, z = p["position"]
-                color = "brown" if p.get("solid", False) else "orange"
-                emoji = "🪐" if p.get("solid", False) else "☁️"
-                static_traces.append(go.Scatter3d(
-                    x=[x], y=[y], z=[z], mode="markers+text",
-                    marker=dict(size=5, color=color), text=[emoji], name="Planets"
-                ))
-            for s in stations:
-                x, y, z = s["position"]
-                static_traces.append(go.Scatter3d(
-                    x=[x], y=[y], z=[z], mode="markers+text",
-                    marker=dict(size=6, color="blue"), text=["📡"], name="Stations"
-                ))
-            update_map.static_traces = static_traces
+    view.add(ship_markers)
+    view.add(planet_markers)
+    view.add(station_markers)
 
-        # Add static traces (planets & stations)
-        for trace in update_map.static_traces:
-            fig.add_trace(trace)
+    # Initial scan for static content
+    scan = game.get(f"/station/{game.sta}/scan")
+    planets = scan["planets"]
+    stations = scan["stations"]
 
-        # Ships are dynamic, update every interval
-        for s in ships:
-            x, y, z = s["position"]
-            fig.add_trace(go.Scatter3d(
-            x=[x], y=[y], z=[z], mode="markers+text",
-            marker=dict(size=7, color="red"), text=[f"🚀{s['id']}"], name="Ships"
-            ))
+    def get_coords(obj_list):
+        return np.array([obj["position"] for obj in obj_list], dtype=np.float32)
 
-        fig.update_layout(template="plotly_dark", scene=dict(bgcolor="black"), margin=dict(l=0, r=0, t=40, b=0))
-        return fig
+    planet_pos = get_coords(planets)
+    station_pos = get_coords(stations)
 
-    app.run(debug=False, port=8050)
+    planet_markers.set_data(planet_pos, face_color='orange', size=20)
+    station_markers.set_data(station_pos, face_color='blue', size=14)
+
+    # Determine center and distance to zoom appropriately
+    all_static = np.concatenate([planet_pos, station_pos]) if len(station_pos) > 0 else planet_pos
+    if len(all_static) > 0:
+        center = all_static.mean(axis=0)
+        max_dist = np.linalg.norm(all_static - center, axis=1).max()
+        view.camera.center = tuple(center)
+        view.camera.distance = max(300, max_dist * 2)  # Adjust to see whole galaxy
+
+    # Dynamic ship updates
+    def update(event):
+        try:
+            ships = game.get(f"/player/{game.pid}")["ships"]
+            ship_pos = get_coords(ships)
+            ship_markers.set_data(ship_pos, face_color='red', size=10)
+            canvas.update()  # Force redraw
+        except Exception as e:
+            print(f"[!] Update failed: {e}")
+
+    # Run periodic updates
+    timer = app.Timer(interval=0.1, connect=update, start=True)
+
+    # Show canvas and run app
+    canvas.show()
+    app.run()
 
 def render_status(game):    
     status = game.get("/player/" + str(game.pid))
@@ -692,6 +688,9 @@ def launch_terminal_hud(game):
                 live.update(render_status(game))
                 time.sleep(0.1)
             except Exception as e:
+                if e=="This player lost the game and cannot play anymore":
+                    console.print("[❗] Player lost the game, exiting terminal HUD")
+                    break
                 print(f"[!] Error in terminal HUD: {e}")
                 time.sleep(1)
             
@@ -709,9 +708,11 @@ def ship_loop(game, sid):
             game.go_sell(sid, logger)
             game.optimize_upgrades(sid, logger)
         except Exception as e:
+            if e=="This player lost the game and cannot play anymore":
+                logger.log("[❗] Player lost the game, exiting ship loop")
+                break
             logger.log(f"[!] Error during ship loop: {e}")
-            time.sleep(1)
-            
+            time.sleep(0.1)
 if __name__ == "__main__":
     name = sys.argv[1]
     game = Game(name)
