@@ -1,6 +1,6 @@
 PORT=8080
-# URL=f"http://103.45.247.164:{PORT}"
-URL=f"http://127.0.0.1:{PORT}"
+URL=f"http://103.45.247.164:{PORT}"
+#URL=f"http://127.0.0.1:{PORT}"
 
 RESOURCE_VALUE = {
     "Ozone": 100,
@@ -208,7 +208,7 @@ class Game:
         logger.log("[🚀] Traveling to {}, will take {}".format(pos, costs["duration"]))
         self.wait_idle(sid, ts=costs["duration"] if costs["duration"] < 1 else 0.1)
 
-    def wait_idle(self, sid, ts=2/10):
+    def wait_idle(self, sid, ts=1/10):
         ship = self.get(f"/ship/{sid}")
         while ship["state"] != "Idle":
             time.sleep(ts)
@@ -517,7 +517,7 @@ class Game:
         top_ratio = upgrades[0][3] / upgrades[0][2]
         min_ratio = top_ratio * (1.0 - 0.10)
         shipmoney = money / len(player["ships"])  # Money per ship
-        moneyMinCap = shipmoney*0.1
+        moneyMinCap = shipmoney*0.1+1000
         shipUpgradeCap = 100
         while upgrades:
             kind, id_, price, gain = upgrades[0]
