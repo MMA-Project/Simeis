@@ -67,7 +67,7 @@ impl Galaxy {
             let planet = planet::Planet::random((x, y, z), &mut rng);
             if self
                 .insert(&(x, y, z), SpaceObject::Planet(Arc::new(planet)))
-                .is_err()
+                .is_none()
             {
                 continue;
             }
@@ -90,12 +90,12 @@ impl Galaxy {
         self.objects.get(coord)
     }
 
-    pub fn insert(&mut self, coord: &SpaceCoord, obj: SpaceObject) -> Result<(), ()> {
+    pub fn insert(&mut self, coord: &SpaceCoord, obj: SpaceObject) -> Option<()> {
         if self.objects.contains_key(coord) {
-            return Err(());
+            return None;
         }
         self.objects.insert(*coord, obj);
-        Ok(())
+        Some(())
     }
 
     fn list_objects_in_sector(&self, sector: &GalaxySector) -> Vec<&SpaceObject> {

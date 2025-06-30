@@ -39,8 +39,11 @@ impl Planet {
     }
 
     // TODO (#34) Make this depend on the conditions, temperature, etc...
+    #[allow(clippy::if_same_then_else)]
     pub fn resource_density(&self, resource: &Resource) -> f64 {
         if self.solid && resource.mineable(u8::MAX) {
+            6.25
+        } else if !self.solid && resource.suckable(u8::MAX) {
             6.25
         } else {
             0.0
