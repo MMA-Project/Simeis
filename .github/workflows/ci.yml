@@ -35,6 +35,7 @@ jobs:
         shell: bash
         run: |
           cargo run --features testing &
+          until nc -z localhost 9345; do sleep 1; done
           python3 tests/gameplay.test.py
 
       - name: Run heavy-testing
