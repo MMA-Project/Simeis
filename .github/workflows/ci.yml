@@ -51,7 +51,9 @@ jobs:
       - name: Check-deps
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
-        run: python3 .github/tototutu.py
+        run: |
+          pip install toml
+          python3 .github/tototutu.py
 
       - name: Build manual
         shell: bash
