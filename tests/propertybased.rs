@@ -1,0 +1,36 @@
+use rand::{rngs::SmallRng, Rng, SeedableRng};
+
+const NB_ITER: usize = 1000;
+
+fn create_property_based_test<T: Fn(&mut SmallRng)>(reg: &[u64], f: T) {
+    let mut seed_rng = rand::thread_rng();
+    for i in 0..NB_ITER {
+        let seed = if let Some(&s) = reg.get(i) {
+            s
+        } else {
+            seed_rng.gen()
+        };
+
+        let mut rng = SmallRng::seed_from_u64(seed);
+        f(&mut rng);
+    }
+}
+
+#[test]
+fn test_unload() {
+    create_property_based_test(&[], |rng| {
+        use simeis_data::ship::{Resource, ShipCargo};
+
+        let mut cargo = ShipCargo::with_capacity(100.0);
+        let res = Resource::Iron;
+
+        let amnt = rng.gen_range(1.0..10.0);
+        cargo.add_resource(&res, amnt);
+
+        let unload_amnt = rng.gen_range(0.0..=amnt);
+        let unloaded = cargo.unload(&res, unload_amnt);
+
+        assert!(unloaded <= amnt);
+        assert!((cargo.usage - (res.volume() * (amnt - unloaded))).abs() < 1e-6);
+    });
+}
