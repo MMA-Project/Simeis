@@ -6,6 +6,10 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -30,6 +34,13 @@ jobs:
         shell: bash
         run: make test
 
+      - name: Run integration tests
+        if: startsWith(github.event.pull_request.base.ref, 'release/')
+        shell: bash
+        run: |
+          cargo run --features testing &
+          python3 tests/gameplay.test.py
+
       - name: Run heavy-testing
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
@@ -43,7 +54,7 @@ jobs:
       - name: Check-deps
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
-        run: python3 ./tototutu.py
+        run: python3 .github/tototutu.py
 
       - name: Build manual
         shell: bash
