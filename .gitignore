@@ -5,3 +5,4 @@ logs
 *.json
 *.zip
 .~lock.*.ods#
+scores.json
