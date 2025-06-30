@@ -1,5 +1,6 @@
 PORT=8080
 URL=f"http://127.0.0.1:{PORT}"
+# URL=f"http://103.45.247.164:{PORT}"
 
 import os
 import json
@@ -110,6 +111,8 @@ while True:
     print(f'Time elapsed since start of monitoring : {datetime.now() - LAUNCHTIME}')
     print("")
     info = get_info()
+    with open("scores.json", "w") as f:
+        json.dump(info, f)
     if len(info) == 0:
         print("No players on the server")
         continue

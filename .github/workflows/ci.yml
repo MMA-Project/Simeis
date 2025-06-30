@@ -30,6 +30,31 @@ jobs:
         shell: bash
         run: make test
 
+      - name: Run integration tests
+        if: startsWith(github.event.pull_request.base.ref, 'release/')
+        shell: bash
+        run: |
+          cargo run --features testing &
+          until nc -z localhost 9345; do sleep 1; done
+          python3 tests/gameplay.test.py
+
+      - name: Run heavy-testing
+        if: startsWith(github.event.pull_request.base.ref, 'release/')
+        shell: bash
+        run: cargo test --features heavy-testing
+
+      - name: Cargo-Audit
+        if: startsWith(github.event.pull_request.base.ref, 'release/')
+        shell: bash
+        run: cargo install cargo-audit && cargo audit
+
+      - name: Check-deps
+        if: startsWith(github.event.pull_request.base.ref, 'release/')
+        shell: bash
+        run: |
+          pip install toml
+          python3 .github/tototutu.py
+
       - name: Build manual
         shell: bash
         run: make manual
