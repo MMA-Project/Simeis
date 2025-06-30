@@ -28,7 +28,7 @@ jobs:
       - name: Extract coverage percent
         id: coverage
         run: |
-          COVERAGE=$(jq '[.[] | .coverage] | add / length' tarpaulin-report.json)
+          COVERAGE=$(jq '.coverage' tarpaulin-report.json)
           echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
 
       - name: Add label if coverage < 50%
