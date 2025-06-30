@@ -2,13 +2,6 @@ PORT=8080
 #URL=f"http://103.45.247.164:{PORT}"
 URL=f"http://127.0.0.1:{PORT}"
 
-RESOURCE_VALUE = {
-    "Ozone": 100,
-    "Iron": 75,
-    "Helium": 50,
-    "Stone": 25
-}
-
 import os
 import sys
 import math
@@ -48,8 +41,6 @@ def estimate_gain(kind, id, data):
         if new_rank > 40:
             return 0.0
         gain_ratio = (new_rank*100  / current_rank) if current_rank > 0 else 200.0
-        # if data["cargo"]["capacity"] > 10000:
-        #     return (gain_ratio-100)*2
         return (gain_ratio-100)/len(data["modules"])
     elif kind == "newmodule":
         current_modules = len(data["modules"]) 
@@ -64,11 +55,9 @@ def estimate_gain(kind, id, data):
         new_rank = current_rank + 1
         if "Pilot" == data["crew"][id]["member_type"] and new_rank > 20:
             return 0.0
-        if "Operator" == data["crew"][id]["member_type"] and new_rank > 50:
+        if "Operator" == data["crew"][id]["member_type"] and new_rank > 40:
             return 0.0
         gain_ratio = (new_rank*100  / current_rank) if current_rank > 0 else 200.0
-        # if "Operator" == data["crew"][id]["member_type"] and data["cargo"]["capacity"] > 10000:
-        #     return (gain_ratio+-100)*2
         return gain_ratio-100
     
     elif kind == "trader":
@@ -89,10 +78,10 @@ def estimate_gain(kind, id, data):
         if id == "ReactorUpgrade":
             current = data["reactor_power"]
             new = current + 1
-            if new > 50: return 0
+            if new > 40: return 0
         elif id == "CargoExpansion":
             current = data["cargo"]["capacity"]
-            new = current + 100
+            new = current + 150
             if new > 100000: return 0
         elif id == "HullUpgrade":
             current = data["hull_decay_capacity"]
@@ -100,7 +89,7 @@ def estimate_gain(kind, id, data):
         elif id == "Shield":
             current = data["shield_power"]
             new = current + 0.01
-            if new > 20: return 0
+            if new > 10: return 0
         else:
             return 0.0
         gain_ratio = (new*100 / current) if current > 0 else 110.0
@@ -535,7 +524,7 @@ class Game:
         top_ratio = upgrades[0][3] / upgrades[0][2]
         min_ratio = top_ratio * (1.0 - 0.10)
         shipmoney = money / len(player["ships"])  # Money per ship
-        moneyMinCap = shipmoney*0.1+1000
+        moneyMinCap = shipmoney*0.1+500
         shipUpgradeCap = 100
         while upgrades:
             kind, id_, price, gain = upgrades[0]
@@ -586,6 +575,7 @@ class Game:
                 continue
             
             ship = self.get(f"/ship/{sid}")
+            station = self.get(f"/station/{self.sta}")
 
             if kind == "module":
                 mod_preview = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade")
@@ -743,7 +733,7 @@ def ship_loop(game, sid):
         try:
             logger.log("")
             ship= game.get(f"/ship/{sid}")
-            if ship["cargo"]["usage"]>0:
+            if ship["cargo"]["usage"]>100:
                 game.go_sell(sid, logger)
                 game.optimize_upgrades(sid, logger)
             game.go_mine(sid, logger)
@@ -760,7 +750,7 @@ if __name__ == "__main__":
     game = Game(name)
     game.init_game()
     # Lancer la carte dans un thread
-    threading.Thread(target=launch_galaxy_map, args=(game,), daemon=True).start()
+    #threading.Thread(target=launch_galaxy_map, args=(game,), daemon=True).start()
     # Lancer l'HUD dans un thread
     threading.Thread(target=launch_terminal_hud, args=(game,), daemon=True).start()
     
