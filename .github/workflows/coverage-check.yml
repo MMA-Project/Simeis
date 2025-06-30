@@ -1,0 +1,39 @@
+name: Check Code Coverage
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  coverage-check:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run coverage
+        run: cargo tarpaulin --out Json --workspace --timeout 60
+
+      - name: Extract coverage percent
+        id: coverage
+        run: |
+          COVERAGE=$(jq '.coverage' tarpaulin-report.json)
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+
+      - name: Add label if coverage < 50%
+        if: ${{ steps.coverage.outputs.coverage < 50 }}
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: not enough tests
