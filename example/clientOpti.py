@@ -704,6 +704,10 @@ def ship_loop(game, sid):
     while True:
         try:
             logger.log("")
+            ship= game.get(f"/ship/{sid}")
+            if ship["cargo"]["usage"]>0:
+                game.go_sell(sid, logger)
+                game.optimize_upgrades(sid, logger)
             game.go_mine(sid, logger)
             game.go_sell(sid, logger)
             game.optimize_upgrades(sid, logger)
