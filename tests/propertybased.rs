@@ -1,6 +1,10 @@
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
-const NB_ITER: usize = 1000;
+#[cfg(feature = "heavy-testing")]
+const NB_ITER: usize = 100_000;
+
+#[cfg(not(feature = "heavy-testing"))]
+const NB_ITER: usize = 100;
 
 fn create_property_based_test<T: Fn(&mut SmallRng)>(reg: &[u64], f: T) {
     let mut seed_rng = rand::thread_rng();
