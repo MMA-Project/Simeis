@@ -21,10 +21,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target
-            .cargo/registry
-            .cargo/git
-            .cargo/bin
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build project
@@ -41,10 +42,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target
-            .cargo/registry
-            .cargo/git
-            .cargo/bin
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Run checks
         shell: bash
@@ -59,10 +61,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target
-            .cargo/registry
-            .cargo/git
-            .cargo/bin
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Run tests
         shell: bash
@@ -88,10 +91,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target
-            .cargo/registry
-            .cargo/git
-            .cargo/bin
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Cargo-Audit
         shell: bash
@@ -134,10 +138,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target
-            .cargo/registry
-            .cargo/git
-            .cargo/bin
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Format check
@@ -156,10 +161,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target
-            .cargo/registry
-            .cargo/git
-            .cargo/bin
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build release
         shell: bash
