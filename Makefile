@@ -3,6 +3,10 @@ TARGET = target/release/$(BINARY_NAME)
 MANUAL_FILE = doc/manual.typ
 MANUAL_OUTPUT = doc/manual.pdf
 
+build:
+	RUSTFLAGS="-C codegen-units=1 -C code-model=large" cargo build
+	strip $(TARGET)
+
 release:
 	RUSTFLAGS="-C codegen-units=1 -C code-model=large" cargo build --release
 	strip $(TARGET)
