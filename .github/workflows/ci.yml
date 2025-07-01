@@ -1,4 +1,4 @@
-name: CI checks and tests
+name: CI Pipeline
 
 on:
   push:
@@ -37,6 +37,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Restore cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            .cargo/registry
+            .cargo/git
+            .cargo/bin
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Run checks
         shell: bash
         run: make check
@@ -46,6 +55,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Restore cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            .cargo/registry
+            .cargo/git
+            .cargo/bin
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Run tests
         shell: bash
         run: make test
@@ -66,6 +84,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Restore cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            .cargo/registry
+            .cargo/git
+            .cargo/bin
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Cargo-Audit
         shell: bash
         run: cargo install cargo-audit && cargo audit
@@ -103,6 +130,15 @@ jobs:
         with:
           toolchain: stable
           override: true
+      - name: Restore cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            .cargo/registry
+            .cargo/git
+            .cargo/bin
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Format check
         run: cargo fmt --check
@@ -116,6 +152,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Restore cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            .cargo/registry
+            .cargo/git
+            .cargo/bin
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build release
         shell: bash
         run: make release
