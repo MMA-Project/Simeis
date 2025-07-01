@@ -1,4 +1,4 @@
-name: CI checks and tests
+name: CI Pipeline
 
 on:
   push:
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,52 +20,87 @@ jobs:
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Install typst
-        run: |
-          wget https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz
-          tar -xf typst-x86_64-unknown-linux-musl.tar.xz
-          sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Build project
+        shell: bash
+        run: make build
+
+  check:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Run checks
         shell: bash
         run: make check
-
+  tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Run tests
         shell: bash
         run: make test
-
       - name: Run integration tests
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: |
           cargo run --features testing &
           python3 tests/gameplay.test.py
-
       - name: Run heavy-testing
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: cargo test --features heavy-testing
-
+  audit:
+    needs: build
+    if: startsWith(github.event.pull_request.base.ref, 'release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Cargo-Audit
-        if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: cargo install cargo-audit && cargo audit
-
+  deps:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Check-deps
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: python3 .github/tototutu.py
-
+  manual:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install typst
+        run: |
+          wget https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz
+          tar -xf typst-x86_64-unknown-linux-musl.tar.xz
+          sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin
       - name: Build manual
         shell: bash
         run: make manual
 
-      - name: Build release (main only)
-        if: github.ref == 'refs/heads/main'
-        shell: bash
-        run: make release
-
   quality:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -79,3 +114,21 @@ jobs:
 
       - name: Clippy lints
         run: cargo clippy
+  release:
+    needs: [build, check, tests, deps, manual, quality]
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        version: [1.75.0, 1.80.0, 1.85.0, 1.88.0]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+      - name: Build release
+        shell: bash
+        run: make release
