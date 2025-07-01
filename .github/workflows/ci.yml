@@ -6,6 +6,10 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -93,7 +97,7 @@ jobs:
           sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin
       - name: Build manual
         shell: bash
-        run: make manual
+        run: make manuall
 
   quality:
     needs: build
