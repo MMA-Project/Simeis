@@ -97,7 +97,7 @@ jobs:
           sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin
       - name: Build manual
         shell: bash
-        run: make manuall
+        run: make manual
 
   quality:
     needs: build
