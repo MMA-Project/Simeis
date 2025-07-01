@@ -29,7 +29,7 @@ jobs:
 
       - name: Build project
         shell: bash
-        run: cargo build
+        run: make build
 
   check:
     needs: build
@@ -61,12 +61,12 @@ jobs:
         run: cargo test --features heavy-testing
   audit:
     needs: build
+    if: startsWith(github.event.pull_request.base.ref, 'release/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Cargo-Audit
-        if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: cargo install cargo-audit && cargo audit
   deps:
@@ -109,7 +109,13 @@ jobs:
 
       - name: Clippy lints
         run: cargo clippy
-#- name: Build release (main only)
-#if: github.ref == 'refs/heads/main'
-# shell: bash
-# run: make release
+  release:
+    needs: [build, check, tests, deps, manual, quality]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build release
+        shell: bash
+        run: make release
