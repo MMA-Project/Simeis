@@ -46,7 +46,7 @@ def estimate_gain(kind, id, data):
         current_modules = len(data["modules"]) 
         new_modules = current_modules + 1
         gain_ratio = (new_modules * 100 / current_modules) if current_modules > 0 else 200.0
-        if len(data["modules"])*5000 >= data["cargo"]["capacity"]:
+        if len(data["modules"])*4000 >= data["cargo"]["capacity"]:
             return 0.0
         return gain_ratio - 100
 
@@ -82,7 +82,7 @@ def estimate_gain(kind, id, data):
         elif id == "CargoExpansion":
             current = data["cargo"]["capacity"]
             new = current + 150
-            if new > 66000: return 0
+            if new > 33000: return 0
         elif id == "HullUpgrade":
             current = data["hull_decay_capacity"]
             new = current 
