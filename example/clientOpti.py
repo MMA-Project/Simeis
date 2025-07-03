@@ -1,13 +1,6 @@
 PORT=8080
-# URL=f"http://103.45.247.164:{PORT}"
+#URL=f"http://103.45.247.164:{PORT}"
 URL=f"http://127.0.0.1:{PORT}"
-
-RESOURCE_VALUE = {
-    "Ozone": 100,
-    "Iron": 75,
-    "Helium": 50,
-    "Stone": 25
-}
 
 import os
 import sys
@@ -21,6 +14,7 @@ from rich.live import Live
 from rich.console import Console
 from vispy import app, scene
 import numpy as np
+from collections import defaultdict
 
 class SimeisError(Exception):
     pass
@@ -44,24 +38,27 @@ def estimate_gain(kind, id, data):
     if kind == "module":
         current_rank = data["modules"][id]["rank"]
         new_rank = current_rank + 1
-        if new_rank > 45:
+        if new_rank > 20:
             return 0.0
         gain_ratio = (new_rank*100  / current_rank) if current_rank > 0 else 200.0
-        if data["cargo"]["capacity"] > 10000:
-            return (gain_ratio-100)*2
-        return gain_ratio-100
+        return (gain_ratio-100)/len(data["modules"])
+    elif kind == "newmodule":
+        current_modules = len(data["modules"]) 
+        new_modules = current_modules + 1
+        gain_ratio = (new_modules * 100 / current_modules) if current_modules > 0 else 200.0
+        if len(data["modules"])*5000 >= data["cargo"]["capacity"]:
+            return 0.0
+        return gain_ratio - 100
 
     elif kind == "crew":
         current_rank = data["crew"][id]["rank"]
         new_rank = current_rank + 1
-        if "Pilot" == data["crew"][id]["member_type"] and new_rank > 20:
+        if "Pilot" == data["crew"][id]["member_type"] and new_rank > 5:
             return 0.0
-        if "Operator" == data["crew"][id]["member_type"] and new_rank > 200:
+        if "Operator" == data["crew"][id]["member_type"] and new_rank > 45:
             return 0.0
         gain_ratio = (new_rank*100  / current_rank) if current_rank > 0 else 200.0
-        if "Operator" == data["crew"][id]["member_type"] and data["cargo"]["capacity"] > 10000:
-            return (gain_ratio+-100)*2
-        return gain_ratio-100
+        return (gain_ratio-100)/len(data["modules"])
     
     elif kind == "trader":
         rank = data["crew"][id]["rank"]
@@ -69,8 +66,8 @@ def estimate_gain(kind, id, data):
         new_fee = 0.26 / ((rank + 1) ** 1.15)
         if new_fee <= 0.01:
             return 0
-        gain_ratio = (current_fee * 100 / new_fee) if current_fee > 0 else 200.0
-        return gain_ratio-100
+        gain_ratio = (new_fee * 100 / current_fee) if current_fee > 0 else 200.0
+        return 100-gain_ratio
     elif kind == "ship":
         current_ships = len(data["ships"]) 
         new_ships = current_ships + 1
@@ -84,15 +81,15 @@ def estimate_gain(kind, id, data):
             if new > 50: return 0
         elif id == "CargoExpansion":
             current = data["cargo"]["capacity"]
-            new = current + 100
-            if new > 100000: return 0
+            new = current + 150
+            if new > 66000: return 0
         elif id == "HullUpgrade":
             current = data["hull_decay_capacity"]
             new = current 
         elif id == "Shield":
             current = data["shield_power"]
             new = current + 0.01
-            if new > 20: return 0
+            if new > 2: return 0
         else:
             return 0.0
         gain_ratio = (new*100 / current) if current > 0 else 110.0
@@ -208,7 +205,7 @@ class Game:
         logger.log("[🚀] Traveling to {}, will take {}".format(pos, costs["duration"]))
         self.wait_idle(sid, ts=costs["duration"] if costs["duration"] < 1 else 0.1)
 
-    def wait_idle(self, sid, ts=2/10):
+    def wait_idle(self, sid, ts=1/10):
         ship = self.get(f"/ship/{sid}")
         while ship["state"] != "Idle":
             time.sleep(ts)
@@ -441,10 +438,10 @@ class Game:
                 if logisticLoop > 2 and total_earned > 100000:
                     logger.log(f"[🔄] Too much Logistic loop completed, time to make the station great again")
                     unitcargoprice=self.get(f"/station/{self.sta}/upgrades")["cargo-expansion"]
-                    new_cargo_price=unitcargoprice*59000
-                    if new_cargo_price == 59000:           
+                    new_cargo_price=unitcargoprice*79000
+                    if new_cargo_price == 79000:           
                         logger.log(f"[⚙️] Upgrading cargo capacity for {new_cargo_price:.1f} credits")
-                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(59000)}")
+                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(79000)}")
                     # if new_cargo_price > max_spend:  
                     #     # Acheter seulement ce qu'on peut se permettre (max_spend)
                     #     affordable_units = max_spend // unitcargoprice
@@ -466,11 +463,19 @@ class Game:
         money = player["money"]
         ship = self.get(f"/ship/{sid}")
         station= self.get(f"/station/{self.sta}")
+        has_miner = check_has(ship["modules"], "modtype", "Miner")
+        has_sucker = check_has(ship["modules"], "modtype", "GasSucker")
+
+        if has_miner:
+            modtype = "Miner"
+        elif has_sucker:
+            modtype = "GasSucker"
 
         upgrades = []
 
         # Prévisualisation
         mod_preview = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade")
+        modules = self.get(f"/station/{self.sta}/shop/modules")
         crew_preview = self.get(f"/station/{self.sta}/crew/upgrade/ship/{sid}")
         ship_upgrades = self.get(f"/station/{self.sta}/shipyard/upgrade")
         station_upgrades = self.get(f"/station/{self.sta}/upgrades")
@@ -483,6 +488,8 @@ class Game:
                 price = mod_preview[mod_id_str]["price"]
                 gain = estimate_gain("module", mod_id, ship)
                 upgrades.append(("module", mod_id, price, gain))
+        new_module_price = modules[modtype] + 4000
+        upgrades.append(("newmodule", modtype, new_module_price, estimate_gain("newmodule", modtype, ship)))
 
         # Crew
         for crew_id in ship["crew"]:
@@ -506,7 +513,7 @@ class Game:
         # New ship
         for ship_data in available:
             ship_id = ship_data["id"]
-            price = ship_data["price"]+30000
+            price = ship_data["price"]+15000
             gain = estimate_gain("ship", ship_id, player)
             upgrades.append(("ship", ship_id, price, gain))
         
@@ -517,7 +524,7 @@ class Game:
         top_ratio = upgrades[0][3] / upgrades[0][2]
         min_ratio = top_ratio * (1.0 - 0.10)
         shipmoney = money / len(player["ships"])  # Money per ship
-        moneyMinCap = shipmoney*0.1
+        moneyMinCap = shipmoney*0.1+500
         shipUpgradeCap = 100
         while upgrades:
             kind, id_, price, gain = upgrades[0]
@@ -537,6 +544,12 @@ class Game:
                 if kind == "module":
                     res = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade/{id_}")
                     logger.log(f"[⏫] Module {id_} upgraded for {price:.1f} & gain {gain:.1f}%")
+                elif kind == "newmodule":
+                    res = self.get(f"/station/{self.sta}/shop/modules/{sid}/buy/{id_}")
+                    logger.log(f"[🛠️] New module {id_} bought for {price:.1f} & gain {gain:.1f}%")
+                    op = self.get(f"/station/{self.sta}/crew/hire/operator")["id"]
+                    self.get(f"/station/{self.sta}/crew/assign/{op}/{sid}/{res['id']}")
+                    logger.log("[👨‍🔧] Hired an operator, assigned it on the mining module of our ship")
                 elif kind == "crew":
                     res = self.get(f"/station/{self.sta}/crew/upgrade/ship/{sid}/{id_}")
                     logger.log(f"[⏫] Crew {id_} upgraded for {price:.1f} & gain {gain:.1f}%")
@@ -562,11 +575,16 @@ class Game:
                 continue
             
             ship = self.get(f"/ship/{sid}")
+            station = self.get(f"/station/{self.sta}")
 
             if kind == "module":
                 mod_preview = self.get(f"/station/{self.sta}/shop/modules/{sid}/upgrade")
                 price = mod_preview[str(id_)]["price"]
                 gain = estimate_gain("module", id_, ship)
+            elif kind == "newmodule":
+                modules = self.get(f"/station/{self.sta}/shop/modules")
+                price = modules[modtype] + 4000
+                gain = estimate_gain("newmodule", modtype, ship)
             elif kind == "crew":
                 crew_preview = self.get(f"/station/{self.sta}/crew/upgrade/ship/{sid}")
                 price = crew_preview[str(id_)]["price"]
@@ -614,7 +632,7 @@ def launch_galaxy_map(game):
     station_pos = get_coords(stations)
 
     planet_markers.set_data(planet_pos, face_color='orange', size=20)
-    station_markers.set_data(station_pos, face_color='blue', size=14)
+    station_markers.set_data(station_pos, face_color='blue', size=20)
 
     # Determine center and distance to zoom appropriately
     all_static = np.concatenate([planet_pos, station_pos]) if len(station_pos) > 0 else planet_pos
@@ -667,11 +685,21 @@ def render_status(game):
         lines.append(f"   - Reactor   : Rank {ship['reactor_power']}")
         lines.append(f"   - Shield    : Rank {ship['shield_power']}")
         lines.append("   - Crew:")
+        member_stats = defaultdict(list)
         for crewid, crew in ship['crew'].items():
-            lines.append(f"      > {crewid}: {crew['member_type']} (Rank {crew['rank']})")
+            member_stats[crew['member_type']].append(crew['rank'])
+        for member_type, ranks in member_stats.items():
+            count = len(ranks)
+            average_rank = sum(ranks) / count
+            lines.append(f"      > {member_type}: {count} members, Avg Rank: {average_rank:.2f}")
         lines.append("   - Modules:")
+        modtype_stats = defaultdict(list)
         for modid, mod in ship['modules'].items():
-            lines.append(f"      > {modid}: {mod['modtype']} (Rank {mod['rank']})")
+            modtype_stats[mod['modtype']].append(mod['rank'])
+        for modtype, ranks in modtype_stats.items():
+            count = len(ranks)
+            average_rank = sum(ranks) / count
+            lines.append(f"      > {modtype}: {count} modules, Avg Rank: {average_rank:.2f}")
         lines.append("")
     for ship in status["ships"][1:]:
         sid = ship["id"]
@@ -704,6 +732,10 @@ def ship_loop(game, sid):
     while True:
         try:
             logger.log("")
+            ship= game.get(f"/ship/{sid}")
+            if ship["cargo"]["usage"]>100:
+                game.go_sell(sid, logger)
+                game.optimize_upgrades(sid, logger)
             game.go_mine(sid, logger)
             game.go_sell(sid, logger)
             game.optimize_upgrades(sid, logger)
@@ -718,7 +750,7 @@ if __name__ == "__main__":
     game = Game(name)
     game.init_game()
     # Lancer la carte dans un thread
-    # threading.Thread(target=launch_galaxy_map, args=(game,), daemon=True).start()
+    #threading.Thread(target=launch_galaxy_map, args=(game,), daemon=True).start()
     # Lancer l'HUD dans un thread
     threading.Thread(target=launch_terminal_hud, args=(game,), daemon=True).start()
     
