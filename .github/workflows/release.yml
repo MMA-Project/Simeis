@@ -29,14 +29,16 @@ jobs:
         run: |
           git fetch --tags
 
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          commit_range="${last_tag}..HEAD"
+          base_branch="main"
+          current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+          start_commit=$(git merge-base origin/${base_branch} HEAD)
+          commit_range="${start_commit}..HEAD"
 
           prs=$(git log --merges --pretty=format:"%s" $commit_range | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
 
           features=""
           bugfixes=""
-          others=""
 
           for pr in $prs; do
             data=$(gh pr view $pr --json headRefName,title,url -q '.')
@@ -49,8 +51,6 @@ jobs:
               features+="$entry"$'\n'
             elif [[ "$branch" == bug/* ]]; then
               bugfixes+="$entry"$'\n'
-            else
-              others+="$entry"$'\n'
             fi
           done
 
@@ -60,10 +60,6 @@ jobs:
 
           echo "bugfixes<<EOF" >> $GITHUB_OUTPUT
           echo "${bugfixes:-_None_}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          echo "others<<EOF" >> $GITHUB_OUTPUT
-          echo "${others:-_None_}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build release artifacts
