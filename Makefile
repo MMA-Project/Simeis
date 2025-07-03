@@ -8,7 +8,6 @@ build:
 
 release:
 	RUSTFLAGS="-C codegen-units=1 -C code-model=large" cargo build --release
-	strip $(TARGET)
 
 check:
 	cargo check
