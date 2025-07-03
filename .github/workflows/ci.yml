@@ -51,18 +51,18 @@ jobs:
         shell: bash
         run: make test
       - name: Run integration tests
-        if: startsWith(github.ref, 'refs/heads/release/')
+        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') && startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: |
           cargo run --features testing &
           python3 tests/gameplay.test.py
       - name: Run heavy-testing
-        if: startsWith(github.ref, 'refs/heads/release/')
+        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') && startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: cargo test --features heavy-testing
   audit:
     needs: build
-    if: startsWith(github.ref, 'refs/heads/release/')
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') && startsWith(github.event.pull_request.base.ref, 'release/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -72,7 +72,7 @@ jobs:
         run: cargo install cargo-audit && cargo audit
   deps:
     needs: build
-    if: startsWith(github.ref, 'refs/heads/release/')
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') && startsWith(github.event.pull_request.base.ref, 'release/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
