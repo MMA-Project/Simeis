@@ -51,18 +51,18 @@ jobs:
         shell: bash
         run: make test
       - name: Run integration tests
-        if: startsWith(github.event.pull_request.base.ref, 'release/')
+        if: startsWith(github.ref, 'refs/heads/release/')
         shell: bash
         run: |
           cargo run --features testing &
           python3 tests/gameplay.test.py
       - name: Run heavy-testing
-        if: startsWith(github.event.pull_request.base.ref, 'release/')
+        if: startsWith(github.ref, 'refs/heads/release/')
         shell: bash
         run: cargo test --features heavy-testing
   audit:
     needs: build
-    if: startsWith(github.event.pull_request.base.ref, 'release/')
+    if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -72,12 +72,12 @@ jobs:
         run: cargo install cargo-audit && cargo audit
   deps:
     needs: build
+    if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Check-deps
-        if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
         run: python3 .github/tototutu.py
   manual:
