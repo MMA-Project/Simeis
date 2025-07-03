@@ -22,35 +22,47 @@ jobs:
           last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           echo "last_tag=$last_tag" >> $GITHUB_OUTPUT
 
-      - name: Generate changelog from conventional commits
+      - name: Generate changelog from merged PRs
         id: changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          since="${{ steps.last_tag.outputs.last_tag }}"
-          if [ -z "$since" ]; then
-            range=""
+          git fetch --tags
+
+          last_tag="${{ steps.last_tag.outputs.last_tag }}"
+          if [ -z "$last_tag" ]; then
+            commit_range=""
           else
-            range="$since..HEAD"
+            commit_range="$last_tag..HEAD"
           fi
 
           echo "features=" >> $GITHUB_OUTPUT
           echo "bugfixes=" >> $GITHUB_OUTPUT
           echo "others=" >> $GITHUB_OUTPUT
 
-          commits=$(git log $range --pretty=format:"%s %h")
+          # get merged PR numbers in the range
+          prs=$(git log --merges --pretty=format:"%s" $commit_range | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
 
           features=""
           bugfixes=""
           others=""
 
-          while IFS= read -r line; do
-            if [[ "$line" =~ ^feat ]]; then
-              features+="* $line"$'\n'
-            elif [[ "$line" =~ ^fix ]]; then
-              bugfixes+="* $line"$'\n'
+          for pr in $prs; do
+            info=$(gh pr view $pr --json headRefName,title,url -q '.')
+            branch=$(echo "$info" | jq -r '.headRefName')
+            title=$(echo "$info" | jq -r '.title')
+            url=$(echo "$info" | jq -r '.url')
+
+            entry="* [$title]($url)"
+
+            if [[ "$branch" == feature/* ]]; then
+              features+="$entry"$'\n'
+            elif [[ "$branch" == bug/* ]]; then
+              bugfixes+="$entry"$'\n'
             else
-              others+="* $line"$'\n'
+              others+="$entry"$'\n'
             fi
-          done <<< "$commits"
+          done
 
           echo "features<<EOF" >> $GITHUB_OUTPUT
           echo "$features" >> $GITHUB_OUTPUT
@@ -63,6 +75,7 @@ jobs:
           echo "others<<EOF" >> $GITHUB_OUTPUT
           echo "$others" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
 
       - name: Build release artifacts
         run: |
