@@ -1,7 +1,7 @@
 name: Auto Release
 
 on:
-  pull_request:
+  push:
     branches:
       - release/**
 
@@ -15,59 +15,53 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get last release tag
+      - name: Get last tag
         id: last_tag
         run: |
           git fetch --tags
-          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          echo "tag=$tag" >> $GITHUB_OUTPUT
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "last_tag=$last_tag" >> $GITHUB_OUTPUT
 
-      - name: Get merged PRs since last release
+      - name: Generate changelog from conventional commits
         id: changelog
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          since="${{ steps.last_tag.outputs.tag }}"
+          since="${{ steps.last_tag.outputs.last_tag }}"
           if [ -z "$since" ]; then
-            echo "No previous tag found, using full history"
-            since="--max-count=50"
+            range=""
           else
-            since="--pretty=format:%H $since..HEAD"
+            range="$since..HEAD"
           fi
 
-          prs=$(git log $since --merges --pretty=format:"%s %b" | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
-          
           echo "features=" >> $GITHUB_OUTPUT
           echo "bugfixes=" >> $GITHUB_OUTPUT
           echo "others=" >> $GITHUB_OUTPUT
 
-          for pr in $prs; do
-            data=$(gh pr view $pr --json headRefName,title,url -q '.')
-            branch=$(echo "$data" | jq -r '.headRefName')
-            title=$(echo "$data" | jq -r '.title')
-            url=$(echo "$data" | jq -r '.url')
+          commits=$(git log $range --pretty=format:"%s %h")
 
-            entry="- [$title]($url)"
+          features=""
+          bugfixes=""
+          others=""
 
-            if [[ "$branch" == feature/* ]]; then
-              echo "$entry" >> features.md
-            elif [[ "$branch" == bug/* ]]; then
-              echo "$entry" >> bugfixes.md
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^feat ]]; then
+              features+="* $line"$'\n'
+            elif [[ "$line" =~ ^fix ]]; then
+              bugfixes+="* $line"$'\n'
             else
-              echo "$entry" >> others.md
+              others+="* $line"$'\n'
             fi
-          done
+          done <<< "$commits"
 
           echo "features<<EOF" >> $GITHUB_OUTPUT
-          cat features.md || echo "_None_" >> $GITHUB_OUTPUT
+          echo "$features" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
           echo "bugfixes<<EOF" >> $GITHUB_OUTPUT
-          cat bugfixes.md || echo "_None_" >> $GITHUB_OUTPUT
+          echo "$bugfixes" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
           echo "others<<EOF" >> $GITHUB_OUTPUT
-          cat others.md || echo "_None_" >> $GITHUB_OUTPUT
+          echo "$others" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build release artifacts
@@ -84,7 +78,7 @@ jobs:
           tag: "release-${{ github.run_number }}"
           name: "Release ${{ github.run_number }}"
           body: |
-            **Changelog**
+            ## Changelog
 
             ### Features
             ${{ steps.changelog.outputs.features }}
