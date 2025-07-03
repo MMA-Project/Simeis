@@ -1,10 +1,10 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches: [main]
   pull_request:
     types: [opened, synchronize]
+  push:
+    branches: [main]
 
 jobs:
   build:
@@ -77,6 +77,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Install toml
+        run: pip install toml
       - name: Check-deps
         shell: bash
         run: python3 .github/tototutu.py
@@ -112,7 +114,7 @@ jobs:
         run: cargo clippy
   build-release:
     needs: [build, check, tests, deps, manual, quality]
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.event.pull_request.base.ref, 'release/')
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
