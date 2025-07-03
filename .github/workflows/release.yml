@@ -69,9 +69,11 @@ jobs:
       - name: Build release artifacts
         run: |
           make release
+          ./build-deb.sh
           mkdir -p release-artifacts
           cp target/release/simeis-server release-artifacts/
           cp doc/manual.pdf release-artifacts/ || true
+          cp simeis_amd64.deb release-artifacts/ || true
 
       - name: Create GitHub Release
         uses: mini-bomba/create-github-release@v1.1.3

@@ -6,3 +6,4 @@ logs
 *.zip
 .~lock.*.ods#
 scores.json
+*.deb
