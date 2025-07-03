@@ -131,7 +131,7 @@ def calculate_all_gain(cargo_capacity, pilotrank, traderrank, len_modules, opran
 
     print(f"Extraction Time: {extraction_time:.2f} seconds")
     travel_time = planet_distance / speed
-    if travel_time < ITER_PERIOD / 1000.0 * 5 or extraction_time < ITER_PERIOD / 1000.0 * 5:
+    if travel_time < ITER_PERIOD / 1000.0 * 2 or extraction_time < ITER_PERIOD / 1000.0 * 2:
         return -1
     # print(f"Travel time: {travel_time:.2f} seconds at speed {speed:.2f} m/s")
     fuelcost =  travel_time * 2 * fuel_consumption * 2

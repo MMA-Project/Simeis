@@ -38,7 +38,7 @@ def estimate_gain(kind, id, data):
     if kind == "module":
         current_rank = data["modules"][id]["rank"]
         new_rank = current_rank + 1
-        if new_rank > 40:
+        if new_rank > 20:
             return 0.0
         gain_ratio = (new_rank*100  / current_rank) if current_rank > 0 else 200.0
         return (gain_ratio-100)/len(data["modules"])
@@ -46,19 +46,19 @@ def estimate_gain(kind, id, data):
         current_modules = len(data["modules"]) 
         new_modules = current_modules + 1
         gain_ratio = (new_modules * 100 / current_modules) if current_modules > 0 else 200.0
-        if len(data["modules"])*10000 >= data["cargo"]["capacity"]:
+        if len(data["modules"])*5000 >= data["cargo"]["capacity"]:
             return 0.0
         return gain_ratio - 100
 
     elif kind == "crew":
         current_rank = data["crew"][id]["rank"]
         new_rank = current_rank + 1
-        if "Pilot" == data["crew"][id]["member_type"] and new_rank > 20:
+        if "Pilot" == data["crew"][id]["member_type"] and new_rank > 5:
             return 0.0
-        if "Operator" == data["crew"][id]["member_type"] and new_rank > 40:
+        if "Operator" == data["crew"][id]["member_type"] and new_rank > 45:
             return 0.0
         gain_ratio = (new_rank*100  / current_rank) if current_rank > 0 else 200.0
-        return gain_ratio-100
+        return (gain_ratio-100)/len(data["modules"])
     
     elif kind == "trader":
         rank = data["crew"][id]["rank"]
@@ -78,18 +78,18 @@ def estimate_gain(kind, id, data):
         if id == "ReactorUpgrade":
             current = data["reactor_power"]
             new = current + 1
-            if new > 40: return 0
+            if new > 50: return 0
         elif id == "CargoExpansion":
             current = data["cargo"]["capacity"]
             new = current + 150
-            if new > 100000: return 0
+            if new > 66000: return 0
         elif id == "HullUpgrade":
             current = data["hull_decay_capacity"]
             new = current 
         elif id == "Shield":
             current = data["shield_power"]
             new = current + 0.01
-            if new > 10: return 0
+            if new > 2: return 0
         else:
             return 0.0
         gain_ratio = (new*100 / current) if current > 0 else 110.0
@@ -438,10 +438,10 @@ class Game:
                 if logisticLoop > 2 and total_earned > 100000:
                     logger.log(f"[🔄] Too much Logistic loop completed, time to make the station great again")
                     unitcargoprice=self.get(f"/station/{self.sta}/upgrades")["cargo-expansion"]
-                    new_cargo_price=unitcargoprice*59000
-                    if new_cargo_price == 59000:           
+                    new_cargo_price=unitcargoprice*79000
+                    if new_cargo_price == 79000:           
                         logger.log(f"[⚙️] Upgrading cargo capacity for {new_cargo_price:.1f} credits")
-                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(59000)}")
+                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(79000)}")
                     # if new_cargo_price > max_spend:  
                     #     # Acheter seulement ce qu'on peut se permettre (max_spend)
                     #     affordable_units = max_spend // unitcargoprice
