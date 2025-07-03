@@ -1,0 +1,102 @@
+name: Auto Release
+
+on:
+  pull_request:
+    branches:
+      - release/**
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get last release tag
+        id: last_tag
+        run: |
+          git fetch --tags
+          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+
+      - name: Get merged PRs since last release
+        id: changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          since="${{ steps.last_tag.outputs.tag }}"
+          if [ -z "$since" ]; then
+            echo "No previous tag found, using full history"
+            since="--max-count=50"
+          else
+            since="--pretty=format:%H $since..HEAD"
+          fi
+
+          prs=$(git log $since --merges --pretty=format:"%s %b" | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
+          
+          echo "features=" >> $GITHUB_OUTPUT
+          echo "bugfixes=" >> $GITHUB_OUTPUT
+          echo "others=" >> $GITHUB_OUTPUT
+
+          for pr in $prs; do
+            data=$(gh pr view $pr --json headRefName,title,url -q '.')
+            branch=$(echo "$data" | jq -r '.headRefName')
+            title=$(echo "$data" | jq -r '.title')
+            url=$(echo "$data" | jq -r '.url')
+
+            entry="- [$title]($url)"
+
+            if [[ "$branch" == feature/* ]]; then
+              echo "$entry" >> features.md
+            elif [[ "$branch" == bug/* ]]; then
+              echo "$entry" >> bugfixes.md
+            else
+              echo "$entry" >> others.md
+            fi
+          done
+
+          echo "features<<EOF" >> $GITHUB_OUTPUT
+          cat features.md || echo "_None_" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "bugfixes<<EOF" >> $GITHUB_OUTPUT
+          cat bugfixes.md || echo "_None_" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "others<<EOF" >> $GITHUB_OUTPUT
+          cat others.md || echo "_None_" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Build release artifacts
+        run: |
+          cargo build --release
+          mkdir -p release-artifacts
+          cp target/release/simeis release-artifacts/
+          cp doc/manual.pdf release-artifacts/ || true
+
+      - name: Create GitHub Release
+        uses: mini-bomba/create-github-release@v1.1.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: "release-${{ github.run_number }}"
+          name: "Release ${{ github.run_number }}"
+          body: |
+            **Changelog**
+
+            ### Features
+            ${{ steps.changelog.outputs.features }}
+
+            ### Bugfixes
+            ${{ steps.changelog.outputs.bugfixes }}
+
+            ### Other
+            ${{ steps.changelog.outputs.others }}
+
+            [Workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          files: |
+            release-artifacts/*
+          clear_attachments: true
