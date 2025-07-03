@@ -29,14 +29,27 @@ jobs:
         run: |
           git fetch --tags
 
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          commit_range="${last_tag}..HEAD"
+          all_tags=($(git tag --sort=version:refname))
+
+          if [ ${#all_tags[@]} -eq 0 ]; then
+            echo "No tags found"
+            exit 1
+          fi
+
+          if [ ${#all_tags[@]} -gt 1 ]; then
+            from_tag="${all_tags[-2]}"
+            to_tag="${all_tags[-1]}"
+            commit_range="${from_tag}..${to_tag}"
+          else
+            to_tag="${all_tags[-1]}"
+            first_commit=$(git rev-list --max-parents=0 HEAD)
+            commit_range="${first_commit}..${to_tag}"
+          fi
 
           prs=$(git log --merges --pretty=format:"%s" $commit_range | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
 
           features=""
           bugfixes=""
-          others=""
 
           for pr in $prs; do
             data=$(gh pr view $pr --json headRefName,title,url -q '.')
@@ -49,8 +62,6 @@ jobs:
               features+="$entry"$'\n'
             elif [[ "$branch" == bug/* ]]; then
               bugfixes+="$entry"$'\n'
-            else
-              others+="$entry"$'\n'
             fi
           done
 
@@ -60,10 +71,6 @@ jobs:
 
           echo "bugfixes<<EOF" >> $GITHUB_OUTPUT
           echo "${bugfixes:-_None_}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          echo "others<<EOF" >> $GITHUB_OUTPUT
-          echo "${others:-_None_}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build release artifacts
