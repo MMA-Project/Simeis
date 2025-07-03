@@ -15,51 +15,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up cache
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Get last tag
-        id: last_tag
-        run: |
-          git fetch --tags
-          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          echo "last_tag=$last_tag" >> $GITHUB_OUTPUT
-
-      - name: Extract version tag from branch name
+      - name: Extract version tag from ref name
         id: extract_tag
         run: |
-          full_ref="${{ github.event.pull_request.base.ref }}"
+          full_ref="${GITHUB_REF_NAME}"
           version="${full_ref##*/}"
           echo "version_tag=$version" >> $GITHUB_OUTPUT
 
-      - name: Generate changelog from merged PRs
+      - name: Generate changelog from PR titles
         id: changelog
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git fetch --tags
 
-          last_tag="${{ steps.last_tag.outputs.last_tag }}"
-          if [ -z "$last_tag" ]; then
-            commit_range=""
-          else
-            commit_range="$last_tag..HEAD"
-          fi
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          commit_range="${last_tag}..HEAD"
 
-          echo "features=" >> $GITHUB_OUTPUT
-          echo "bugfixes=" >> $GITHUB_OUTPUT
-          echo "others=" >> $GITHUB_OUTPUT
-
-          # get merged PR numbers in the range
           prs=$(git log --merges --pretty=format:"%s" $commit_range | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
 
           features=""
@@ -67,11 +39,10 @@ jobs:
           others=""
 
           for pr in $prs; do
-            info=$(gh pr view $pr --json headRefName,title,url -q '.')
-            branch=$(echo "$info" | jq -r '.headRefName')
-            title=$(echo "$info" | jq -r '.title')
-            url=$(echo "$info" | jq -r '.url')
-
+            data=$(gh pr view $pr --json headRefName,title,url -q '.')
+            branch=$(echo "$data" | jq -r '.headRefName')
+            title=$(echo "$data" | jq -r '.title')
+            url=$(echo "$data" | jq -r '.url')
             entry="* [$title]($url)"
 
             if [[ "$branch" == feature/* ]]; then
@@ -84,17 +55,16 @@ jobs:
           done
 
           echo "features<<EOF" >> $GITHUB_OUTPUT
-          echo "$features" >> $GITHUB_OUTPUT
+          echo "${features:-_None_}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
           echo "bugfixes<<EOF" >> $GITHUB_OUTPUT
-          echo "$bugfixes" >> $GITHUB_OUTPUT
+          echo "${bugfixes:-_None_}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
           echo "others<<EOF" >> $GITHUB_OUTPUT
-          echo "$others" >> $GITHUB_OUTPUT
+          echo "${others:-_None_}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
 
       - name: Build release artifacts
         run: |
