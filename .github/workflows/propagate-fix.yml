@@ -1,0 +1,58 @@
+name: Propagate Fixes to Release Branches
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  propagate:
+    if: |
+      startsWith(github.event.pull_request.head.ref, 'bug/')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract labels for propagation
+        id: extract
+        run: |
+          echo "RELEASE_TARGETS=$(jq -r '[.pull_request.labels[]?.name | select(startswith("propagate:release/"))]' $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+
+      - name: Debug output
+        run: |
+          echo "Targets: ${{ steps.extract.outputs.RELEASE_TARGETS }}"
+
+      - name: Propagate to releases
+        if: ${{ steps.extract.outputs.RELEASE_TARGETS != '[]' }}
+        run: |
+          echo '${{ steps.extract.outputs.RELEASE_TARGETS }}' | jq -r '.[]' > targets.txt
+          while IFS= read -r label; do
+            release_branch="${label#propagate:}"
+            echo "Propagating to $release_branch"
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            new_branch="propagate-fix-${release_branch//\//-}"
+
+            git checkout -b "$new_branch"
+            git merge --no-ff origin/${{ github.event.pull_request.head.ref }} -m "chore: propagate bugfix to $release_branch"
+
+            git push origin "$new_branch"
+
+            gh pr create \
+              --title "Propagate bugfix to $release_branch" \
+              --body "This PR automatically propagates fixes from `${{ github.event.pull_request.head.ref }}` to `$release_branch`" \
+              --base "$release_branch" \
+              --head "$new_branch" \
+              --label "automated-propagation"
+          done < targets.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
