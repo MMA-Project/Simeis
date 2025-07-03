@@ -115,7 +115,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        version: [1.81.0, 1.85.0, 1.88.0]
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -123,8 +122,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: ${{ matrix.version }}
       - name: Build release
         shell: bash
         run: make release
