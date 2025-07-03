@@ -114,12 +114,12 @@ jobs:
 
       - name: Clippy lints
         run: cargo clippy
-  release:
+  build-release:
     needs: [build, check, tests, deps, manual, quality]
     if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        version: [1.75.0, 1.80.0, 1.85.0, 1.88.0]
+        version: [1.81.0, 1.85.0, 1.88.0]
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
