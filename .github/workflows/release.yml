@@ -72,7 +72,7 @@ jobs:
 
       - name: Build release artifacts
         run: |
-          cargo build --release
+          make release
           mkdir -p release-artifacts
           cp target/release/simeis release-artifacts/
           cp doc/manual.pdf release-artifacts/ || true
