@@ -252,12 +252,12 @@ while any(upgrade[2] > 0 for upgrade in all_new_percent_change):
             ("module_rank_mod", up_module_rank_i, calculate_all_gain(cargo_capacity, pilotrank, traderrank, len_modules, opranks, up_module_rank_i, reactor_power, shield_power, planet_distance) * 100 / current_gain_ratio - 100, 4500**((MOD_UPG_POWF_DIV - 1.0 + module_rank[i]) / MOD_UPG_POWF_DIV))
         )
         
-    print("Améliorations possibles:")
-    for upgrade in all_new_percent_change:
-        upgrade_name, upgrade_value, percent_change, upgrade_cost = upgrade
-        if percent_change <= 0:
-            continue
-        print(f"{upgrade_name}: {upgrade_value} | Gain: {percent_color(percent_change)}{percent_change:.2f}%\033[0m | Coût: {upgrade_cost:.2f}")
+    # print("Améliorations possibles:")
+    # for upgrade in all_new_percent_change:
+    #     upgrade_name, upgrade_value, percent_change, upgrade_cost = upgrade
+    #     if percent_change <= 0:
+    #         continue
+    #     print(f"{upgrade_name}: {upgrade_value} | Gain: {percent_color(percent_change)}{percent_change:.2f}%\033[0m | Coût: {upgrade_cost:.2f}")
 
     # Trouver l'amélioration avec le plus grand pourcentage de gain
     best_upgrade = max(all_new_percent_change, key=lambda x: x[2] / x[3] if x[3] != 0 else float('-inf'))
