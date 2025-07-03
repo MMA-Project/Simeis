@@ -55,6 +55,7 @@ jobs:
         shell: bash
         run: |
           cargo run --features testing &
+          until nc -z localhost 9345; do sleep 1; done
           python3 tests/gameplay.test.py
       - name: Run heavy-testing
         if: startsWith(github.event.pull_request.base.ref, 'release/')
@@ -91,6 +92,7 @@ jobs:
           wget https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz
           tar -xf typst-x86_64-unknown-linux-musl.tar.xz
           sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin
+          
       - name: Build manual
         shell: bash
         run: make manual

@@ -8,18 +8,11 @@ RESOURCE_VALUE = {
     "Stone": 25
 }
 
-import os
 import sys
 import math
 import json
-import time
 import string
 import urllib.request
-import threading
-from rich.live import Live
-from rich.console import Console
-from vispy import app, scene
-import numpy as np
 import datetime
 
 class SimeisError(Exception):
