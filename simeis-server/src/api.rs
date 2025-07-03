@@ -424,7 +424,7 @@ async fn buy_crew_upgrade(
 
     let player = get_player!(srv, req);
     let mut player = player.write().await;
-    let galaxy = srv.galaxy.write().await;
+    let galaxy = srv.galaxy.read().await;
     let station = get_station!(srv, station_id; player; galaxy);
     let station = station.read().await;
 
