@@ -15,6 +15,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Get last tag
         id: last_tag
         run: |
