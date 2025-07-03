@@ -29,11 +29,22 @@ jobs:
         run: |
           git fetch --tags
 
-          base_branch="main"
-          current_branch=$(git rev-parse --abbrev-ref HEAD)
+          all_tags=($(git tag --sort=version:refname))
 
-          start_commit=$(git merge-base origin/${base_branch} HEAD)
-          commit_range="${start_commit}..HEAD"
+          if [ ${#all_tags[@]} -eq 0 ]; then
+            echo "No tags found"
+            exit 1
+          fi
+
+          if [ ${#all_tags[@]} -gt 1 ]; then
+            from_tag="${all_tags[-2]}"
+            to_tag="${all_tags[-1]}"
+            commit_range="${from_tag}..${to_tag}"
+          else
+            to_tag="${all_tags[-1]}"
+            first_commit=$(git rev-list --max-parents=0 HEAD)
+            commit_range="${first_commit}..${to_tag}"
+          fi
 
           prs=$(git log --merges --pretty=format:"%s" $commit_range | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
 
