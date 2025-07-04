@@ -29,6 +29,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install cargo-audit
+        if: startsWith(github.event.pull_request.base.ref, 'release/')
         run: |
           if ! command -v cargo-audit &> /dev/null; then
             cargo install cargo-audit
