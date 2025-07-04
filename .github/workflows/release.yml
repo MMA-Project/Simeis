@@ -19,7 +19,7 @@ jobs:
         id: next_version
         run: |
           branch="${GITHUB_REF_NAME}" 
-          major_minor="$branch"
+            major_minor="${branch#release/}"
 
           git fetch --tags
 
