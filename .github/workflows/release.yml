@@ -82,7 +82,7 @@ jobs:
             changelog+="* ${title} by @${author} in [#${pr}](${url})"$'\n'
           done
 
-          changelog+=$'\n'"[Full Changelog](https://github.com/${{ github.repository }}/commits/${to_tag})"
+            changelog+=$'\n'"[Full Changelog](https://github.com/${{ github.repository }}/compare/${from_tag}...${to_tag})"
 
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$changelog" >> $GITHUB_OUTPUT
