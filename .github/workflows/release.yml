@@ -100,7 +100,14 @@ jobs:
           cp target/release/simeis-server release-artifacts/
           cp doc/manual.pdf release-artifacts/ || true
           cp simeis_amd64.deb release-artifacts/ || true
+      - name: Build Docker image
+        run: |
+          docker build -f .github/Dockerfile -t simeis:${{ steps.next_version.outputs.next_version }} .
 
+      - name: Save Docker image as archive
+        run: |
+          mkdir -p release-artifacts
+          docker image save simeis:${{ steps.next_version.outputs.next_version }} -o release-artifacts/simeis-docker.tar
       - name: Create GitHub Release
         uses: mini-bomba/create-github-release@v1.1.3
         with:
