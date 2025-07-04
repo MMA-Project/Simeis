@@ -130,7 +130,18 @@ jobs:
 
       - name: Test
         run: |
-          docker run --rm simeis:test
+          docker run -d --name simeis_test simeis:test
+          sleep 5
+          if docker ps --filter "name=simeis_test" --filter "status=running" | grep simeis_test; then
+            echo "Server is running"
+            docker stop simeis_test
+            docker rm simeis_test
+          else
+            echo "Server failed to start"
+            docker logs simeis_test || true
+            docker rm simeis_test
+            exit 1
+          fi
 
       - name: Build and push
         uses: docker/build-push-action@v6
