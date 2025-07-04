@@ -178,7 +178,7 @@ current_gain_ratio = calculate_all_gain(cargo_capacity, pilotrank, traderrank, l
 # len_modules += 1
 # opranks.append(1)
 # module_rank.append(1)
-# opranks[0] += 5
+# opranks[0] += 1
 # module_rank[0] += 1
 # reactor_power += 1
 # shield_power += 1
