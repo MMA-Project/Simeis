@@ -33,7 +33,7 @@ jobs:
             fi
           done
 
-          echo "Next version: $next_version"
+          next_version="${major_minor}.${last_patch}"
 
           echo "next_version=$next_version" >> $GITHUB_OUTPUT
       - name: Update version in packaging/control
