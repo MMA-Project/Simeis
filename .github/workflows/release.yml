@@ -18,7 +18,7 @@ jobs:
       - name: Calculate next patch version
         id: next_version
         run: |
-          branch="${GITHUB_REF_NAME}" # ex: 1.0
+          branch="${GITHUB_REF_NAME}" 
           major_minor="$branch"
 
           git fetch --tags
@@ -33,13 +33,14 @@ jobs:
             fi
           done
 
-          next_version="${major_minor}.${last_patch}"
+          echo "Next version: $next_version"
 
           echo "next_version=$next_version" >> $GITHUB_OUTPUT
       - name: Update version in packaging/control
         run: |
           version=${{ steps.next_version.outputs.next_version }}
-          sed -i "s/^Version: .*/Version: $version/" ./packaging/control
+          sed -i "s|^Version: .*|Version: $version|" ./packaging/control
+
       - name: Create Git tag
         run: |
           version=${{ steps.next_version.outputs.next_version }}
