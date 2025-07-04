@@ -75,6 +75,10 @@ jobs:
           changelog=""
 
           for pr in $prs; do
+            pr_branch=$(gh pr view $pr --json baseRefName,headRefName -q '.headRefName')
+            if [ "$pr_branch" = "main" ]; then
+              continue
+            fi
             pr_data=$(gh pr view $pr --json title,author,url -q '.')
             title=$(echo "$pr_data" | jq -r '.title')
             author=$(echo "$pr_data" | jq -r '.author.login')
