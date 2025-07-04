@@ -10,8 +10,11 @@ import json
 import string
 import urllib.request
 import threading
+from rich.table import Table
+from rich.panel import Panel
+from rich.columns import Columns
+from rich.console import Console, Group
 from rich.live import Live
-from rich.console import Console
 from vispy import app, scene
 import numpy as np
 from collections import defaultdict
@@ -46,7 +49,7 @@ def estimate_gain(kind, id, data):
         current_modules = len(data["modules"]) 
         new_modules = current_modules + 1
         gain_ratio = (new_modules * 100 / current_modules) if current_modules > 0 else 200.0
-        if len(data["modules"])*4000 >= data["cargo"]["capacity"]:
+        if len(data["modules"])*10000 >= data["cargo"]["capacity"]:
             return 0.0
         return gain_ratio - 100
 
@@ -74,7 +77,6 @@ def estimate_gain(kind, id, data):
         gain_ratio = (new_ships * 100 / current_ships) if current_ships > 0 else 200.0
         return gain_ratio - 100
     elif kind == "shipupgrade":
-        # Accès à la stat modifiée selon le type
         if id == "ReactorUpgrade":
             current = data["reactor_power"]
             new = current + 1
@@ -82,7 +84,7 @@ def estimate_gain(kind, id, data):
         elif id == "CargoExpansion":
             current = data["cargo"]["capacity"]
             new = current + 150
-            if new > 33000: return 0
+            if new > 800000: return 0
         elif id == "HullUpgrade":
             current = data["hull_decay_capacity"]
             new = current 
@@ -107,6 +109,7 @@ class Game:
         # Useful for our game loops
         self.pid = self.player["playerId"] # ID of our player
         self.sids = []  # List of all ships we own
+        self.username = "".join([c for c in username if c in string.ascii_letters + string.digits]).lower() # Sanitize username
         self.sta = None    # ID of our station
 
     def get(self, path, **qry):
@@ -435,13 +438,13 @@ class Game:
 
             if total_unloaded > 0:
                 logger.log(f"[💲] Unloaded and sold {total_unloaded:.1f} of {res}, total gain: {total_earned:.1f} credits")
-                if logisticLoop > 2 and total_earned > 100000:
+                if logisticLoop > 2 and total_earned > 200000:
                     logger.log(f"[🔄] Too much Logistic loop completed, time to make the station great again")
                     unitcargoprice=self.get(f"/station/{self.sta}/upgrades")["cargo-expansion"]
-                    new_cargo_price=unitcargoprice*79000
-                    if new_cargo_price == 79000:           
+                    new_cargo_price=unitcargoprice*199000
+                    if new_cargo_price == 199000:           
                         logger.log(f"[⚙️] Upgrading cargo capacity for {new_cargo_price:.1f} credits")
-                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(79000)}")
+                        self.get(f"/station/{self.sta}/shop/cargo/buy/{int(199000)}")
                     # if new_cargo_price > max_spend:  
                     #     # Acheter seulement ce qu'on peut se permettre (max_spend)
                     #     affordable_units = max_spend // unitcargoprice
@@ -604,14 +607,12 @@ class Game:
         logger.log(f"[💰] Ship money left after upgrades: {shipmoney:.2f} credits")
                 
 def launch_galaxy_map(game):
-    print(app.use_app())  # Prints active backend (e.g., PyQt5)
+    print(app.use_app()) 
 
-    # Create canvas and view
     canvas = scene.SceneCanvas(keys='interactive', show=True, bgcolor='black')
     view = canvas.central_widget.add_view()
     view.camera = scene.cameras.TurntableCamera(fov=45)
 
-    # Visual layers
     planet_markers = scene.visuals.Markers()
     station_markers = scene.visuals.Markers()
     ship_markers = scene.visuals.Markers()
@@ -620,7 +621,6 @@ def launch_galaxy_map(game):
     view.add(planet_markers)
     view.add(station_markers)
 
-    # Initial scan for static content
     scan = game.get(f"/station/{game.sta}/scan")
     planets = scan["planets"]
     stations = scan["stations"]
@@ -634,83 +634,145 @@ def launch_galaxy_map(game):
     planet_markers.set_data(planet_pos, face_color='orange', size=20)
     station_markers.set_data(station_pos, face_color='blue', size=20)
 
-    # Determine center and distance to zoom appropriately
     all_static = np.concatenate([planet_pos, station_pos]) if len(station_pos) > 0 else planet_pos
     if len(all_static) > 0:
         center = all_static.mean(axis=0)
         max_dist = np.linalg.norm(all_static - center, axis=1).max()
         view.camera.center = tuple(center)
-        view.camera.distance = max(300, max_dist * 2)  # Adjust to see whole galaxy
+        view.camera.distance = max(300, max_dist * 2)
 
-    # Dynamic ship updates
     def update(event):
         try:
             ships = game.get(f"/player/{game.pid}")["ships"]
             ship_pos = get_coords(ships)
             ship_markers.set_data(ship_pos, face_color='red', size=10)
-            canvas.update()  # Force redraw
+            canvas.update()  
         except Exception as e:
             print(f"[!] Update failed: {e}")
 
-    # Run periodic updates
     timer = app.Timer(interval=0.1, connect=update, start=True)
-
-    # Show canvas and run app
     canvas.show()
     app.run()
 
-def render_status(game):    
+def render_status(game):
     status = game.get("/player/" + str(game.pid))
-    lines = []
-    lines.append("Current status: {} credits, costs: {}, time left before lost: {} secs".format(
-        round(status["money"], 2), round(status["costs"], 2), int(status["money"] / status["costs"]),
-    ))
-    lines.append("=== STATIONS ===")
+    # market = game.get("/market/prices")["prices"]
+    gameinfo = game.get("/gamestats")
+    # Sort gameinfo by score descending
+    gameinfo = dict(sorted(gameinfo.items(), key=lambda item: item[1].get('score', 0), reverse=True))
+    # print(gameinfo)
+    
+    myinfo = None
+    for player_id, info in gameinfo.items():
+        if info.get("name", "").lower() == game.username:
+            myinfo = info
+            break
+
+    money = round(status["money"], 2)
+    costs = round(status["costs"], 2)
+    time_left = int(money / costs)
+    time_left_min = time_left // 60
+    time_left_sec = time_left % 60
+    time_left_str = f"{time_left_min}m {time_left_sec}s"
+    # Convert age (seconds) to min:sec format
+    age_sec = myinfo['age']
+    age_min = age_sec // 60
+    age_rem_sec = age_sec % 60
+    age_str = f"{age_min}m {age_rem_sec}s"
+
+    # Handle missing or incomplete myinfo gracefully
+    if myinfo is not None:
+        score = myinfo.get('score', 0.0)
+        rank = list(gameinfo.keys()).index(player_id) + 1
+        leaderboard = f"{rank}/{len(gameinfo)}"
+    else:
+        score = 0.0
+        leaderboard = f"1/{len(gameinfo)}"
+
+    header = Panel(
+        f"[bold cyan]Credits:[/bold cyan] [bright_white]{money} 💲[/bright_white] | "
+        f"[bold yellow]Costs:[/bold yellow] [bright_white]{costs} 💰/s[/bright_white] | "
+        f"[bold red]Time Left:[/bold red] [bright_white]{time_left_str} ⌛[/bright_white] | "
+        f"[bold green]Age:[/bold green] [bright_white]{age_str}[/bright_white] | "
+        f"[bold magenta]Score:[/bold magenta] [bright_white]{score:.2f}[/bright_white] | "
+        f"[bold blue]Leaderboard:[/bold blue] [bright_white]{leaderboard}[/bright_white] | "
+        f"[bold white]Earning Rate:[/bold white] [bright_white]{score / age_sec if age_sec > 0 else 0:.2f} 💵/s[/bright_white]",
+        title=f"[bold blue]Current Status : {game.username}[/bold blue]",
+        expand=False,
+        border_style="yellow"
+    )
+
+    station_lines = []
     for sta in status["stations"]:
         station = game.get(f"/station/{sta}")
-        lines.append(f"-> Station {station['id']}")
-        lines.append(f"   - Pos       : {station['position']}")
-        lines.append(f"   - Trader    : {station['crew'][str(station['trader'])]['member_type']} (Rank {station['crew'][str(station['trader'])]['rank']})")
-        lines.append(f"   - Cargo     : {round(station['cargo']['usage'], 2)} / {station['cargo']['capacity']}")
-        lines.append(f"   - Resources : {station['cargo']['resources']}")
-    lines.append(f"=== {len(status['ships'])} SHIPS ===")
-    for ship in status["ships"][:1]:
-        sid = ship["id"]
-        lines.append(f"-> Ship {sid}")
-        lines.append(f"   - Pos       : {ship['position']}")
-        lines.append(f"   - Cargo     : {round(ship['cargo']['usage'], 2)} / {ship['cargo']['capacity']}")
-        lines.append(f"   - Fuel      : {round(ship['fuel_tank'], 2)} / {ship['fuel_tank_capacity']}")
-        lines.append(f"   - Hull      : {round(ship['hull_decay'], 2)} / {ship['hull_decay_capacity']}")
-        lines.append(f"   - State     : {ship['state']}")
-        lines.append(f"   - Reactor   : Rank {ship['reactor_power']}")
-        lines.append(f"   - Shield    : Rank {ship['shield_power']}")
-        lines.append("   - Crew:")
-        member_stats = defaultdict(list)
-        for crewid, crew in ship['crew'].items():
-            member_stats[crew['member_type']].append(crew['rank'])
-        for member_type, ranks in member_stats.items():
-            count = len(ranks)
-            average_rank = sum(ranks) / count
-            lines.append(f"      > {member_type}: {count} members, Avg Rank: {average_rank:.2f}")
-        lines.append("   - Modules:")
-        modtype_stats = defaultdict(list)
-        for modid, mod in ship['modules'].items():
-            modtype_stats[mod['modtype']].append(mod['rank'])
-        for modtype, ranks in modtype_stats.items():
-            count = len(ranks)
-            average_rank = sum(ranks) / count
-            lines.append(f"      > {modtype}: {count} modules, Avg Rank: {average_rank:.2f}")
-        lines.append("")
-    for ship in status["ships"][1:]:
-        sid = ship["id"]
-        lines.append(f"-> Ship {sid} | Pos: {ship['position']} | Cargo: {round(ship['cargo']['usage'], 2)}/{ship['cargo']['capacity']}| Reactor: {ship['reactor_power']} | Shield: {ship['shield_power']}")
-        lines.append(f"   - State: {ship['state']}")
+        trader_info = station['crew'][str(station['trader'])]
+        station_lines.append(f"[bold]📡 Station {station['id']}[/bold]")
+        station_lines.append(f"  • Trader    : Rank {trader_info['rank']}")
+        station_lines.append(f"  • Cargo     : {station['cargo']['usage']:.0f} / {station['cargo']['capacity']:.0f}")
+        station_lines.append(f"  • Resources : {station['cargo']['resources']}")
+    stations_panel = Panel("\n".join(station_lines), title="Stations", border_style="blue", expand=True)
+
+    ships_table = Table.grid(expand=True)
+    ships_table.add_column(no_wrap=True)
+    ships_table.add_column()
+    ships_table.add_column()
+    ships_table.add_column()
+    ships_table.add_column()
+    ships_table.add_column()
+    ships_table.add_column()
+
+    for ship in status["ships"]:
+        crew_stats = defaultdict(list)
+        for crew in ship['crew'].values():
+            crew_stats[crew['member_type']].append(crew['rank'])
+        crew_summary = ", ".join([
+            f"{member_type}({len(ranks)}|{sum(ranks)/len(ranks):.1f})"
+            for member_type, ranks in crew_stats.items()
+        ]) or "None"
+
+        mod_stats = defaultdict(list)
+        for mod in ship['modules'].values():
+            mod_stats[mod['modtype']].append(mod['rank'])
+        mod_summary = ", ".join([
+            f"{modtype}({len(ranks)}|{sum(ranks)/len(ranks):.1f})"
+            for modtype, ranks in mod_stats.items()
+        ]) or "None"
         
-    return "\n".join(lines)
+        raw_state = ship["state"]
+        if isinstance(raw_state, dict):
+            key = next(iter(raw_state))
+            data = raw_state[key]
+            if key == "Extracting":
+                state_str = f"[white]Extracting:[/white] {len(data)} resources"
+            elif key == "InFlight":
+                percent = (data['dist_done'] / data['dist_tot']) * 100
+                state_str = f"[white]InFlight:[/white] {percent:.1f}%"
+            else:
+                state_str = f"[white]{key}[/white]"
+        else:
+            state_str = f"[white]{raw_state}[/white]"
+
+        ship_cargo_info = f"[yellow]Cargo[/yellow] {ship['cargo']['usage']:.0f}/{ship['cargo']['capacity']:.0f}"
+        ship_reactor_info = f"[magenta]Reactor[/magenta] {ship['reactor_power']}"
+        ship_shield_info = f"[blue]Shield[/blue] {ship['shield_power']}"
+        crew_summary = f"[green]Crew[/green] {crew_summary}"
+        mod_summary = f"[bright_magenta]Modules[/bright_magenta] {mod_summary}"
+        state_str = f"[cyan]State[/cyan] {state_str}"
+
+        if any(mod.get("modtype") == "Miner" for mod in ship["modules"].values()):
+            ship_label = f"[bold red]🚀 Ship {ship['id']}[/bold red]"
+        else:
+            ship_label = f"[bold cyan]🚀 Ship {ship['id']}[/bold cyan]"
+        ships_table.add_row(ship_label, ship_cargo_info, ship_reactor_info, ship_shield_info, crew_summary, mod_summary, state_str)
+
+    ships_panel = Panel(ships_table, title=f"{len(status['ships'])} Ships", border_style="magenta")
+
+    content = Group(header, stations_panel, ships_panel)
+    return content
 
 def launch_terminal_hud(game):
     console = Console()
-    with Live(render_status(game), console=console, refresh_per_second=100) as live:
+    with Live(render_status(game), console=console, refresh_per_second=10) as live:
         while True:
             try:
                 live.update(render_status(game))
@@ -724,7 +786,6 @@ def launch_terminal_hud(game):
             
 def ship_loop(game, sid):
     logger = get_ship_logger(sid)
-    # Ensure our ship has a crew, hire one if we don't
     ship = game.get(f"/ship/{sid}")
     if not check_has(ship["crew"], "member_type", "Pilot"):
         game.hire_first_pilot(game.sta, ship["id"])
@@ -749,13 +810,10 @@ if __name__ == "__main__":
     name = sys.argv[1]
     game = Game(name)
     game.init_game()
-    # Lancer la carte dans un thread
     #threading.Thread(target=launch_galaxy_map, args=(game,), daemon=True).start()
-    # Lancer l'HUD dans un thread
     threading.Thread(target=launch_terminal_hud, args=(game,), daemon=True).start()
     
     try:
-        # Lancer le jeu pour chaque vaisseau
         for sid in game.sids:
             threading.Thread(target=ship_loop, args=(game, sid), daemon=True).start()
         while True:
