@@ -15,12 +15,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extract version tag from ref name
-        id: extract_tag
+      - name: Calculate next patch version
+        id: next_version
         run: |
-          full_ref="${GITHUB_REF_NAME}"
-          version="${full_ref##*/}"
-          echo "version_tag=$version" >> $GITHUB_OUTPUT
+          branch="${GITHUB_REF_NAME}" # ex: 1.0
+          major_minor="$branch"
+
+          git fetch --tags
+
+          existing_tags=$(git tag -l "${major_minor}.*" | sort -V)
+          last_patch=0
+
+          for tag in $existing_tags; do
+            patch=${tag##*.}
+            if [[ $patch =~ ^[0-9]+$ ]] && (( patch >= last_patch )); then
+              last_patch=$((patch + 1))
+            fi
+          done
+
+          next_version="${major_minor}.${last_patch}"
+
+          echo "next_version=$next_version" >> $GITHUB_OUTPUT
+      - name: Update version in packaging/control
+        run: |
+          version=${{ steps.next_version.outputs.next_version }}
+          sed -i "s/^Version: .*/Version: $version/" ./packaging/control
+      - name: Create Git tag
+        run: |
+          version=${{ steps.next_version.outputs.next_version }}
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag "$version"
+          git push origin "$version"
 
       - name: Generate changelog from PR titles
         id: changelog
@@ -29,27 +55,22 @@ jobs:
         run: |
           git fetch --tags
 
-          all_tags=($(git tag --sort=version:refname))
+          tags=($(git tag --sort=version:refname))
 
-          if [ ${#all_tags[@]} -eq 0 ]; then
-            echo "No tags found"
-            exit 1
+          if [ ${#tags[@]} -lt 2 ]; then
+            echo "Not enough tags to compare"
+            exit 0
           fi
 
-          if [ ${#all_tags[@]} -gt 1 ]; then
-            from_tag="${all_tags[-2]}"
-            to_tag="${all_tags[-1]}"
-            commit_range="${from_tag}..${to_tag}"
-          else
-            to_tag="${all_tags[-1]}"
-            first_commit=$(git rev-list --max-parents=0 HEAD)
-            commit_range="${first_commit}..${to_tag}"
-          fi
+          from_tag="${tags[-2]}"
+          to_tag="${tags[-1]}"
+          echo "Comparing $from_tag to $to_tag"
 
-          prs=$(git log --merges --pretty=format:"%s" $commit_range | grep -Eo '#[0-9]+' | sed 's/#//' | sort -u)
+          prs=$(git log --merges --pretty=format:"%s" "$from_tag..$to_tag" | grep -Eo 'Merge pull request #([0-9]+)' | grep -Eo '[0-9]+' | sort -u)
 
           features=""
           bugfixes=""
+          others=""
 
           for pr in $prs; do
             data=$(gh pr view $pr --json headRefName,title,url -q '.')
@@ -62,6 +83,10 @@ jobs:
               features+="$entry"$'\n'
             elif [[ "$branch" == bug/* ]]; then
               bugfixes+="$entry"$'\n'
+            elif [[ "$branch" == main ]]; then
+              continue
+            else
+              others+="$entry"$'\n'
             fi
           done
 
@@ -71,6 +96,10 @@ jobs:
 
           echo "bugfixes<<EOF" >> $GITHUB_OUTPUT
           echo "${bugfixes:-_None_}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "others<<EOF" >> $GITHUB_OUTPUT
+          echo "${others:-_None_}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build release artifacts
@@ -86,8 +115,8 @@ jobs:
         uses: mini-bomba/create-github-release@v1.1.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: "${{ steps.extract_tag.outputs.version_tag }}"
-          name: "Release ${{ steps.extract_tag.outputs.version_tag }}"
+          tag: "${{ steps.next_version.outputs.next_version }}"
+          name: "Release ${{ steps.next_version.outputs.next_version }}"
           body: |
             ## Changelog
 
