@@ -49,7 +49,7 @@ jobs:
           git tag "$version"
           git push origin "$version"
 
-      - name: Generate changelog from PR titles
+      - name: Generate changelog "What's Changed"
         id: changelog
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,6 +60,9 @@ jobs:
 
           if [ ${#tags[@]} -lt 2 ]; then
             echo "Not enough tags to compare"
+            echo "changelog<<EOF" >> $GITHUB_OUTPUT
+            echo "_Initial release_" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -67,40 +70,22 @@ jobs:
           to_tag="${tags[-1]}"
           echo "Comparing $from_tag to $to_tag"
 
-          prs=$(git log --merges --pretty=format:"%s" "$from_tag..$to_tag" | grep -Eo 'Merge pull request #([0-9]+)' | grep -Eo '[0-9]+' | sort -u)
+          prs=$(git log --merges --pretty=format:"%s" "$from_tag..$to_tag" | grep -Eo 'Merge pull request #[0-9]+' | grep -Eo '[0-9]+' | sort -u)
 
-          features=""
-          bugfixes=""
-          others=""
+          changelog=""
 
           for pr in $prs; do
-            data=$(gh pr view $pr --json headRefName,title,url -q '.')
-            branch=$(echo "$data" | jq -r '.headRefName')
-            title=$(echo "$data" | jq -r '.title')
-            url=$(echo "$data" | jq -r '.url')
-            entry="* [$title]($url)"
-
-            if [[ "$branch" == feature/* ]]; then
-              features+="$entry"$'\n'
-            elif [[ "$branch" == bug/* ]]; then
-              bugfixes+="$entry"$'\n'
-            elif [[ "$branch" == main ]]; then
-              continue
-            else
-              others+="$entry"$'\n'
-            fi
+            pr_data=$(gh pr view $pr --json title,author,url -q '.')
+            title=$(echo "$pr_data" | jq -r '.title')
+            author=$(echo "$pr_data" | jq -r '.author.login')
+            url=$(echo "$pr_data" | jq -r '.url')
+            changelog+="* ${title} by @${author} in [#${pr}](${url})"$'\n'
           done
 
-          echo "features<<EOF" >> $GITHUB_OUTPUT
-          echo "${features:-_None_}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          changelog+=$'\n'"[Full Changelog](https://github.com/${{ github.repository }}/commits/${to_tag})"
 
-          echo "bugfixes<<EOF" >> $GITHUB_OUTPUT
-          echo "${bugfixes:-_None_}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          echo "others<<EOF" >> $GITHUB_OUTPUT
-          echo "${others:-_None_}" >> $GITHUB_OUTPUT
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$changelog" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build release artifacts
@@ -119,18 +104,9 @@ jobs:
           tag: "${{ steps.next_version.outputs.next_version }}"
           name: "Release ${{ steps.next_version.outputs.next_version }}"
           body: |
-            ## Changelog
+            ## What's Changed
 
-            ### Features
-            ${{ steps.changelog.outputs.features }}
-
-            ### Bugfixes
-            ${{ steps.changelog.outputs.bugfixes }}
-
-            ### Other
-            ${{ steps.changelog.outputs.others }}
-
-            [Workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            ${{ steps.changelog.outputs.changelog }}
 
           files: |
             release-artifacts/*
