@@ -150,7 +150,7 @@ jobs:
           file: .github/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: simeis:${{ steps.next_version.outputs.next_version }}
+          tags: helldeal/simeis:${{ steps.next_version.outputs.next_version }}
 
       - name: Create GitHub Release
         uses: mini-bomba/create-github-release@v1.1.3
