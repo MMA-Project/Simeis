@@ -707,9 +707,9 @@ def render_status(game):
         station = game.get(f"/station/{sta}")
         trader_info = station['crew'][str(station['trader'])]
         station_lines.append(f"[bold]📡 Station {station['id']}[/bold]")
-        station_lines.append(f"  • Trader    : Rank {trader_info['rank']}")
-        station_lines.append(f"  • Cargo     : {station['cargo']['usage']:.0f} / {station['cargo']['capacity']:.0f}")
-        station_lines.append(f"  • Resources : {station['cargo']['resources']}")
+        station_lines.append(f"    [green]Trader[/green]    Rank {trader_info['rank']}")
+        station_lines.append(f"    [yellow]Cargo[/yellow]     {station['cargo']['usage']:.0f} / {station['cargo']['capacity']:.0f}")
+        station_lines.append(f"    [yellow]Resources[/yellow] {station['cargo']['resources']}")
     stations_panel = Panel("\n".join(station_lines), title="Stations", border_style="blue", expand=True)
 
     ships_table = Table.grid(expand=True)
