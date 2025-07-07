@@ -170,8 +170,9 @@ jobs:
       - name: Restart service on remote server
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i key.pem student@${{ secrets.SSH_IP }} "
-          if lsof -i :7272 -t; then
-            kill $(lsof -i :7272 -t)
+          pid=\$(lsof -i :7272 -t)
+          if [ -n \"\$pid\" ]; then
+            kill \$pid
           fi
           sleep 2
           nohup simeismma > /dev/null 2>&1 &
