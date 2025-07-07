@@ -159,10 +159,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} student@${{ secrets.SSH_IP }} "echo 'SSH connection successful'"
       - name: Copy files to remote server
         run: |
-          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} release-artifacts/simeis_mma_amd64.deb student@${{ secrets.SSH_IP }}:~/MMA/
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} release-artifacts/simeismma_amd64.deb student@${{ secrets.SSH_IP }}:~/MMA/
       - name: Install package on remote server
         run: |
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} student@${{ secrets.SSH_IP }} "sudo apt install ~/MMA/simeis_mma_amd64.deb -f -y"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} student@${{ secrets.SSH_IP }} "sudo apt install ~/MMA/simeismma_amd64.deb -f -y"
       - name: Restart service on remote server
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} student@${{ secrets.SSH_IP }} "
@@ -170,7 +170,7 @@ jobs:
             kill $(lsof -i :7272 -t)
           fi
           sleep 2
-          nohup simeis_mma > /dev/null 2>&1 &
+          nohup simeismma > /dev/null 2>&1 &
           "
       - name: Create GitHub Release
         uses: mini-bomba/create-github-release@v1.1.3
