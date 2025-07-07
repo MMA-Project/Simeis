@@ -99,7 +99,7 @@ jobs:
           mkdir -p release-artifacts
           cp target/release/simeis-server release-artifacts/
           cp doc/manual.pdf release-artifacts/ || true
-          cp simeis_amd64.deb release-artifacts/ || true
+          cp simeis_mma_amd64.deb release-artifacts/ || true
       - name: Build Docker image
         run: |
           docker build -f .github/Dockerfile -t simeis:${{ steps.next_version.outputs.next_version }} .
