@@ -17,4 +17,4 @@ cp packaging/simeis.1.gz "$BUILD_DIR/usr/share/man/man1/"
 cp packaging/simeis.service "$BUILD_DIR/etc/systemd/system/"
 cp packaging/control "$BUILD_DIR/DEBIAN/control"
 
-dpkg-deb --build "$BUILD_DIR" "${PKG_NAME}_${ARCH}.deb"
+dpkg-deb --build "$BUILD_DIR" "${PKG_NAME}_mma_${ARCH}.deb"
