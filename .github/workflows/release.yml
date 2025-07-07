@@ -40,7 +40,10 @@ jobs:
         run: |
           version=${{ steps.next_version.outputs.next_version }}
           sed -i "s|^Version: .*|Version: $version|" ./packaging/control
-
+      - name: Update version in Cargo.toml
+        run: |
+          version=${{ steps.next_version.outputs.next_version }}
+          sed -i "s|^version = \".*\"|version = \"$version\"|" ./simeis-server/Cargo.toml
       - name: Create Git tag
         run: |
           version=${{ steps.next_version.outputs.next_version }}
@@ -151,7 +154,24 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: helldeal/simeis:${{ steps.next_version.outputs.next_version }}
-
+      - name: Test SSH connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} student@${{ secrets.SSH_IP }} "echo 'SSH connection successful'"
+      - name: Copy files to remote server
+        run: |
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} release-artifacts/simeis_mma_amd64.deb student@${{ secrets.SSH_IP }}:~/MMA/
+      - name: Install package on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} student@${{ secrets.SSH_IP }} "sudo apt install ~/MMA/simeis_mma_amd64.deb -f -y"
+      - name: Restart service on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${{ secrets.SSH_PK }} student@${{ secrets.SSH_IP }} "
+          if lsof -i :7272 -t; then
+            kill $(lsof -i :7272 -t)
+          fi
+          sleep 2
+          nohup simeis_mma > /dev/null 2>&1 &
+          "
       - name: Create GitHub Release
         uses: mini-bomba/create-github-release@v1.1.3
         with:
