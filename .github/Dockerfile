@@ -8,6 +8,6 @@ WORKDIR /app
 
 COPY target/release/simeis-server .
 
-EXPOSE 8080
+EXPOSE 7272
 
 ENTRYPOINT ["./simeis-server"]
