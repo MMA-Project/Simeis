@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=simeis
-ExecStart=/usr/bin/simeis
+User=simeismma
+ExecStart=/usr/bin/simeismma
 Restart=on-failure
 
 [Install]
