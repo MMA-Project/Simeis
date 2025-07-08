@@ -192,7 +192,7 @@ jobs:
           "
       - name: Check if new version is running on remote server
         run: |
-          version=$(curl -s http://${{ secrets.SSH_IP }}/version)
+          version=$(curl -s http://${{ secrets.SSH_IP }}:7272/version | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
           echo "Remote server version: $version"
           if [[ "$version" != "${{ steps.next_version.outputs.next_version }}" ]]; then
             echo "Version mismatch! Expected ${{ steps.next_version.outputs.next_version }}, got $version"
