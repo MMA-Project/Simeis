@@ -170,7 +170,10 @@ jobs:
           chmod 600 key.pem
       - name: Test SSH connection
         run: |
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i key.pem student@${{ secrets.SSH_IP }} "echo 'SSH connection successful'"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i key.pem student@${{ secrets.SSH_IP }} "
+            echo 'SSH connection successful'
+            mkdir -p ~/MMA/
+          "
       - name: Copy files to remote server
         run: |
           scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i key.pem release-artifacts/simeismma_amd64.deb student@${{ secrets.SSH_IP }}:~/MMA/
