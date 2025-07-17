@@ -28,6 +28,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      # Tu installe l'outils mais tu le run pas ?
       - name: Install cargo-audit
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         run: |
@@ -44,9 +45,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      # Caching ?
       - name: Run checks
         shell: bash
         run: make check
+
   tests:
     needs: build
     runs-on: ubuntu-latest
@@ -61,8 +64,9 @@ jobs:
         shell: bash
         run: |
           cargo run --features testing &
-          until nc -z localhost 9345; do sleep 1; done
+          until nc -z localhost 9345; do sleep 1; done  # Boucle infinie si le serveur démarre pas
           python3 tests/gameplay.test.py
+      # Donc tu fais un test + un heavy test, rigolo (bon ça va c'est pas horrible)
       - name: Run heavy-testing
         if: startsWith(github.event.pull_request.base.ref, 'release/')
         shell: bash
@@ -95,7 +99,8 @@ jobs:
         run: pip install toml
       - name: Check-deps
         shell: bash
-        run: python3 .github/tototutu.py
+        run: python3 .github/tototutu.py  # Bien suuuuuur
+
   manual:
     needs: build
     runs-on: ubuntu-latest
@@ -104,9 +109,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Install typst
         run: |
+          # Sinon cargo install
+          # Avec du cache ça serait encore mieux
           wget https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz
           tar -xf typst-x86_64-unknown-linux-musl.tar.xz
-          sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin
+          sudo mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin  # Pas de sudo dans un workflow, on est déjà root
 
       - name: Build manual
         shell: bash
@@ -122,11 +129,14 @@ jobs:
           toolchain: stable
           override: true
 
+      # Caching ?
+
       - name: Format check
         run: cargo fmt --check
 
       - name: Clippy lints
         run: cargo clippy
+
   build-release:
     needs: [build, check, tests, deps, manual, quality]
     if: startsWith(github.event.pull_request.base.ref, 'release/')

@@ -85,6 +85,10 @@ class Game:
             sys.exit(0)
             
 
+# OHMONDIEU CETTE IMMONDICE
+# Utilisez des fonctions, factorisez le code, espacez, commentez
+# Je dois vraiment lire ça ?
+# J'ai envie de crever.
 if __name__ == "__main__":
     name = "test_gameplay"
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")

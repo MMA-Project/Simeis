@@ -17,3 +17,9 @@ cargo run
 ```
 cargo test
 ```
+
+Vous êtes les derniers que j'ai corrigé, donc j'ai pété un peu un cable désolé
+
+De manière générale, peu de choses à dire, des trucs qui pourraient être mieux faits, mais pas horribles non plus
+
+Bien ouej

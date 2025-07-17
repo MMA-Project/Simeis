@@ -43,6 +43,7 @@ jobs:
           COVERAGE=$(jq '.coverage' tarpaulin-report.json)
           echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
 
+      # parfait
       - name: Add label if coverage < 50%
         if: ${{ steps.coverage.outputs.coverage < 50 }}
         uses: actions-ecosystem/action-add-labels@v1

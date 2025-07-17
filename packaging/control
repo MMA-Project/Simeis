@@ -1,8 +1,8 @@
 Package: simeismma
-Version: 1.0.0
-Section: utils
+Version: 1.0.0	# Remplacer par version
+Section: utils	# Games
 Priority: optional
 Architecture: amd64
 Depends: cmatrix
-Maintainer: MMA <mma@mma.mma>
-Description: Simeis is a game writtent in rust
+Maintainer: MMA <mma@mma.mma>	# Zéro tracas
+Description: Simeis is a game written in rust
