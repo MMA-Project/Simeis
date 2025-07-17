@@ -2,7 +2,7 @@ name: Auto Update Rust Dependencies
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Every Sunday at midnight
+    - cron: '0 0 * * 0'  # Every Sunday at midnight ->  THRILLEEEEER ! THRILLEEEEEEEEER NIIIIGHT !!!
   workflow_dispatch:
 
 jobs:
